@@ -105,7 +105,7 @@ class SSMA(nn.Module):
         # output x for eASPP, skip connection 1 and skip connection 2
         x, s1, s2 = self.encode(x)
         x = self.eASPP(x)
-        y = self.decode(x, s2, s1)
+        y1, y2, y3 = self.decode(x, s2, s1)
 
     def eASPP(self, x):
         pass
