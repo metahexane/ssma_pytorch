@@ -5,22 +5,37 @@ import torch.nn.functional as F
 class SSMA(nn.Module):
     def __init__(self):
         # encoder layers
-        self.enc_conv_1 = nn.Conv2d(3, 64, kernel_size=7, stride=2)
+        self.enc_conv_1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3)
         self.enc_conv_1_bn = nn.BatchNorm2d(64)
         self.max_pool_2x2 = nn.MaxPool2d(2)
 
         self.u2_sizes_short = [(64, 256), (64, 256), (128, 512), (128, 512), (256, 1024)]
-        self.u2_sizes_block = [(128, 512), (64, 256), (128, 512), (128, 512), (256, 1024)]
+        self.u2_sizes_block = [(128, 512), (256, 1024)]
         self.enc_u2_short = []
         self.enc_u2_block = []
 
+        self.u3_sizes_short = [(128, 1, 64, 2, 512), (256, 1, 256, 2, 1024), (256, 1, 256, 16, 1024), (256, 1, 256, 8, 1024),
+                               (256, 1, 256, 4, 1024), (512, 2, 512, 8, 2048), (512, 2, 512, 16, 2048)]
+        self.u3_sizes_block = [(512, 2, 512, 4, 2048)]
+        self.enc_u3_short = []
+        self.enc_u3_block = []
+
         self._init_u1()
         self._init_u2(self.enc_u2_short, self.u2_sizes_short, s=1)
+        self._init_u2(self.enc_u2_block, self.u2_sizes_block, s=2)
+
+        self._init_u3(self.u3_sizes_short, self.u3_sizes_short)
+        self._init_u3(self.u3_sizes_block, self.u3_sizes_block)
+
+        self.enc_skip1_conv = nn.Conv2d(256, 24, kernel_size=1, stride=1)
+        self.enc_skip1_conv_bn = nn.BatchNorm2d(24)
+        self.enc_skip2_conv = nn.Conv2d(512, 24, kernel_size=1, stride=1)
+        self.enc_skip2_conv_bn = nn.BatchNorm2d(24)
 
     def _init_u1(self):
         self.enc_conv_u1_1 = nn.Conv2d(64, 64, kernel_size=1, stride=1)
         self.enc_conv_u1_1_bn = nn.BatchNorm2d(64)
-        self.enc_conv_u1_2 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self.enc_conv_u1_2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
         self.enc_conv_u1_2_bn = nn.BatchNorm2d(64)
         self.enc_conv_u1_3 = nn.Conv2d(64, 256, kernel_size=1, stride=1)
         self.enc_conv_u1_4 = nn.Conv2d(64, 256, kernel_size=1, stride=1)
@@ -31,31 +46,92 @@ class SSMA(nn.Module):
                 nn.BatchNorm2d(x[1]),
                 nn.Conv2d(x[1], x[0], kernel_size=1, stride=1),
                 nn.BatchNorm2d(x[0]),
-                nn.Conv2d(x[0], x[0], kernel_size=3, stride=s),
+                nn.Conv2d(x[0], x[0], kernel_size=3, stride=s, padding=1),
                 nn.BatchNorm2d(x[0]),
                 nn.Conv2d(x[0], x[1], kernel_size=1, stride=1),
-
             ]
+            if s == 2:
+                # convolution in link
+                u2_comps.append(nn.Conv2d(x[1], x[1], kernel_size=1, stride=s))
             arry.append(u2_comps)
+
+    def _init_u3(self, arry, sizes, block=False):
+        for i, x in enumerate(sizes):
+            u3_comps = [
+                nn.BatchNorm2d(x[-1]),
+                nn.Conv2d(x[-1], x[0], kernel_size=1, stride=1),
+                nn.BatchNorm2d(x[0]),
+                nn.Conv2d(x[0], x[2] / 2, dilation=x[1], kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(x[2] / 2),
+                nn.Conv2d(x[0], x[2] / 2, dilation=x[3], kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(x[2] / 2),
+                nn.Conv2d(x[2], x[-1], kernel_size=1, stride=1)
+            ]
+            if block:
+                u3_comps.append(nn.Conv2d(x[0], x[-1], kernel_size=1, stride=1))
+            arry.append(u3_comps)
 
 
     def forward(self, x):
-        pass
+        # output x for eASPP, skip connection 1 and skip connection 2
+        x, s1, s2 = self.encode(x)
 
     def encode(self, x):
         x = F.relu(self.enc_conv_1_bn(self.enc_conv_1(x)))
         x = self.max_pool_2x2(x)
+        x = self.enc_unit_1(x)
+        x = self.enc_unit_2(x, self.enc_u2_short[0], block=False)
 
-        pass
+        x = self.enc_unit_2(x, self.enc_u2_short[1], block=False) # this connection goes to conv and then decoder/skip 2
+        s2 = self.enc_skip2_conv_bn(self.enc_skip2_conv(x))
+
+        x = self.enc_unit_2(x, self.enc_u2_block[0], block=True)
+        x = self.enc_unit_2(x, self.enc_u2_short[2], block=False)
+        x = self.enc_unit_2(x, self.enc_u2_short[3], block=False)
+        x = self.enc_unit_3(x, self.enc_u3_short[0], block=False) # this connection goes to conv and then decoder/skip 1
+        s1 = self.enc_skip1_conv_bn(self.enc_skip1_conv(x))
+
+        x = self.enc_unit_2(x, self.enc_u3_block[1], block=True)
+        x = self.enc_unit_2(x, self.enc_u3_short[4], block=False)
+        x = self.enc_unit_3(x, self.enc_u3_short[1], block=False)
+        x = self.enc_unit_3(x, self.enc_u3_short[2], block=False)
+        x = self.enc_unit_3(x, self.enc_u3_short[3], block=False)
+        x = self.enc_unit_3(x, self.enc_u3_short[4], block=False)
+        x = self.enc_unit_3(x, self.enc_u3_block[0], block=True)
+        x = self.enc_unit_3(x, self.enc_u3_short[5], block=False)
+        x = self.enc_unit_3(x, self.enc_u3_short[6], block=False)
+
+        return x, s1, s2
 
     def decode(self, x):
         pass
-
-
 
     def enc_unit_1(self, x):
         x = F.relu(self.enc_conv_u1_1_bn(self.enc_conv_u1_1(x)))
         o1 = self.enc_conv_u1_4(x)
         x = F.relu(self.enc_conv_u1_2_bn(self.enc_conv_u1_2(x)))
         x = self.enc_conv_u1_3(x)
+        return x + o1
+
+    def enc_unit_2(self, x, unit, block=False):
+        o1 = x.copy()
+        if block:
+            o1 = unit[-1](o1)
+        x = F.relu(unit[0](x))
+        x = F.relu(unit[2](unit[1](x)))
+        x = F.relu(unit[4](unit[3](x)))
+        x = unit[5](x)
+        return x + o1
+
+    def enc_unit_3(self, x, unit, block=True):
+        o1 = x.copy()
+        if block:
+            o1 = unit[-1](o1)
+
+        x = F.relu(unit[0](x))
+        x = F.relu(unit[2](unit[1](x)))
+        a1 = F.relu(unit[4](unit[3](x)))
+        a2 = F.relu(unit[6](unit[5](x)))
+        a = torch.cat((a1, a2), dim=2)
+        x = unit[7](a)
         return x + o1
