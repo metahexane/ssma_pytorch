@@ -24,6 +24,10 @@ class SSMA(nn.Module):
         self.enc_u3_short = []
         self.enc_u3_block = []
 
+        self.ssma_sizes = [(24, 6), (24, 6), (2048, 16)]
+        self.ssma_blocks = []
+        self._init_ssma(self.ssma_blocks, self.ssma_sizes)
+
         self._init_u1()
         self._init_u2(self.enc_u2_short, self.u2_sizes_short, s=1)
         self._init_u2(self.enc_u2_block, self.u2_sizes_block, s=2)
@@ -101,11 +105,36 @@ class SSMA(nn.Module):
                 u3_comps.append(nn.Conv2d(x[0], x[-1], kernel_size=1, stride=1))
             arry.append(u3_comps)
 
-    def forward(self, x):
+    def _init_ssma(self, blocks, sizes):
+        for x in sizes:
+            cur_ssma = [
+                nn.Conv2d(2 * x[0], x[0] / x[1], kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(x[0] / x[1], 2 * x[0], kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(2 * x[0], x[0], kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(x[0])
+            ]
+            blocks.append(cur_ssma)
+
+    def forward(self, mod1, mod2):
         # output x for eASPP, skip connection 1 and skip connection 2
-        x, s1, s2 = self.encode(x)
-        x = self.eASPP(x)
-        y1, y2, y3 = self.decode(x, s1, s2)
+        m1_x, m1_s1, m1_s2 = self.encode(mod1)
+        m2_x, m2_s1, m2_s2 = self.encode(mod2)
+
+        ssma_s1 = self.fusion_ssma(m1_s1, m2_s1, self.ssma_blocks[0])
+        ssma_s2 = self.fusion_ssma(m1_s2, m2_s2, self.ssma_blocks[1])
+        ssma_x = self.fusion_ssma(m1_x, m2_x, self.ssma_blocks[2])
+
+        ssma_x = self.eASPP(ssma_x)
+        
+        y1, y2, y3 = self.decode(ssma_x, ssma_s1, ssma_s2)
+
+    def fusion_ssma(self, x1, x2, ssma_block):
+        x_12 = torch.cat((x1, x2), 2)
+        xc_12 = F.relu(ssma_block[0](x_12))
+        xc_12 = F.sigmoid(ssma_block[1](xc_12))
+        x_12 = x_12 * xc_12
+        x_12 = ssma_block[3](ssma_block[2](x_12))
+        return x_12
 
     def eASPP(self, x):
         pass
