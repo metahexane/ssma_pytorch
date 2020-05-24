@@ -28,6 +28,10 @@ class SSMA(nn.Module):
         self.ssma_blocks = []
         self._init_ssma(self.ssma_blocks, self.ssma_sizes)
 
+        self.integrate_fuse_skip_sizes = [(256, 24), (256, 24)]
+        self.integrate_fuse_skip_blocks = []
+        self._init_integrate_fuse_skip(self.integrate_fuse_skip_blocks, self.integrate_fuse_skip_sizes)
+
         self._init_u1()
         self._init_u2(self.enc_u2_short, self.u2_sizes_short, s=1)
         self._init_u2(self.enc_u2_block, self.u2_sizes_block, s=2)
@@ -41,11 +45,11 @@ class SSMA(nn.Module):
         self.enc_skip2_conv_bn = nn.BatchNorm2d(24)
 
         # decoder layers
-        self.dec_deconv_1 = nn.ConvTranspose2d(256, 256, stride=2)
+        self.dec_deconv_1 = nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2) # kernel-size as defined in og-code
         self.dec_deconv_1_bn = nn.BatchNorm2d(256)
-        self.dec_deconv_2 = nn.ConvTranspose2d(256, 256, stride=2)
+        self.dec_deconv_2 = nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2)
         self.dec_deconv_2_bn = nn.BatchNorm2d(256)
-        self.dec_deconv_3 = nn.ConvTranspose2d(self.num_categories, self.num_categories, stride=4)
+        self.dec_deconv_3 = nn.ConvTranspose2d(self.num_categories, self.num_categories, kernel_size=8, stride=4)
         self.dec_deconv_3_bn = nn.BatchNorm2d(self.num_categories)
         self.dec_conv_1 = nn.Conv2d(280, 256, 3, padding=1)
         self.dec_conv_1_bn = nn.BatchNorm2d(280)
@@ -115,6 +119,14 @@ class SSMA(nn.Module):
             ]
             blocks.append(cur_ssma)
 
+    def _init_integrate_fuse_skip(self, blocks, sizes):
+        for x in sizes:
+            cur_ifs = [
+                nn.Conv2d(x[0], x[1], 1),
+                nn.BatchNorm2d(x[1])
+            ]
+            blocks.append(cur_ifs)
+
     def forward(self, mod1, mod2):
         # output x for eASPP, skip connection 1 and skip connection 2
         m1_x, m1_s1, m1_s2 = self.encode(mod1)
@@ -125,7 +137,7 @@ class SSMA(nn.Module):
         ssma_x = self.fusion_ssma(m1_x, m2_x, self.ssma_blocks[2])
 
         ssma_x = self.eASPP(ssma_x)
-        
+
         y1, y2, y3 = self.decode(ssma_x, ssma_s1, ssma_s2)
 
     def fusion_ssma(self, x1, x2, ssma_block):
@@ -166,48 +178,28 @@ class SSMA(nn.Module):
 
         return x, s1, s2
 
-    def decode(self, x, skip1, skip2):
-        x = self.dec_deconv_1(x)
-        x = self.dec_deconv_1_bn(x)
+    def decode(self, x, fuse_skip1, fuse_skip2):
+        # stage 1
+        x = self.dec_deconv_1_bn(self.dec_deconv_1(x))
         y1 = self.aux1(x)
-        x = torch.cat((y1, skip1), 1)
-        x = self.dec_conv_1(x)
-        x = self.dec_conv_1_bn(x)
-        x = torch.relu(x)
-        x = self.dec_conv_2(x)
-        x = self.dec_conv_2_bn(x)
-        x = torch.relu(x)
-        x = self.dec_deconv_2(x)
-        x = self.dec_conv_2_bn(x)
+        int_fuse_skip = self.integrate_fuse_skip(x, fuse_skip1, self.integrate_fuse_skip_blocks[0])
+        x = torch.cat((x, int_fuse_skip), 1)
+
+        # stage 2
+        x = torch.relu(self.dec_conv_1_bn(self.dec_conv_1(x)))
+        x = torch.relu(self.dec_conv_2_bn(self.dec_conv_2(x)))
+        x = self.dec_conv_2_bn(self.dec_deconv_2(x))
         y2 = self.aux2(x)
-        x = torch.cat((y2, skip2), 1)
-        x = self.dec_conv_3(x)
-        x = self.dec_conv_3_bn(x)
-        x = torch.relu(x)
-        x = self.dec_conv_4(x)
-        x = self.dec_conv_4_bn(x)
-        x = torch.relu(x)
-        x = self.dec_conv_5(x)
-        x = self.dec_conv_5_bn(x)
-        x = torch.relu(x)
-        x = self.dec_deconv_3(x)
-        y3 = self.dec_deconv_3_bn(x)
+        int_fuse_skip = self.integrate_fuse_skip(x, fuse_skip2, self.integrate_fuse_skip_blocks[1])
+        x = torch.cat((x, int_fuse_skip), 1)
+
+        # stage 3
+        x = torch.relu(self.dec_conv_3_bn(self.dec_conv_3(x)))
+        x = torch.relu(self.dec_conv_4_bn(self.dec_conv_4(x)))
+        x = torch.relu(self.dec_conv_5_bn(self.dec_conv_5(x)))
+        y3 = self.dec_deconv_3_bn(self.dec_deconv_3(x))
 
         return y1, y2, y3
-
-    def aux1(self, x):
-        x = self.aux_conv1(x)
-        x = self.aux_conv1_bn(x)
-        y1 = nn.UpsamplingBilinear2d(scale_factor=8)(x)
-
-        return y1
-
-    def aux2(self, x):
-        x = self.aux_conv1(x)
-        x = self.aux_conv1_bn(x)
-        y2 = nn.UpsamplingBilinear2d(scale_factor=4)(x)
-
-        return y2
 
     def enc_unit_1(self, x):
         x = F.relu(self.enc_conv_u1_1_bn(self.enc_conv_u1_1(x)))
@@ -238,3 +230,19 @@ class SSMA(nn.Module):
         a = torch.cat((a1, a2), dim=2)
         x = unit[7](a)
         return x + o1
+
+    def integrate_fuse_skip(self, x, fuse_skip, unit):
+        x = nn.AdaptiveAvgPool2d((1, 1))(x)
+        x = torch.relu(unit[1](unit[0](x)))
+
+        return torch.mul(x, fuse_skip)
+
+    def aux1(self, x):
+        x = self.aux_conv1_bn(self.aux_conv1(x))
+
+        return nn.UpsamplingBilinear2d(scale_factor=8)(x)
+
+    def aux2(self, x):
+        x = self.aux_conv1_bn(self.aux_conv1(x))
+
+        return nn.UpsamplingBilinear2d(scale_factor=4)(x)
