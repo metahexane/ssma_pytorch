@@ -18,7 +18,8 @@ class SSMA(nn.Module):
         self.enc_u2_short = []
         self.enc_u2_block = []
 
-        self.u3_sizes_short = [(128, 1, 64, 2, 512), (256, 1, 256, 2, 1024), (256, 1, 256, 16, 1024), (256, 1, 256, 8, 1024),
+        self.u3_sizes_short = [(128, 1, 64, 2, 512), (256, 1, 256, 2, 1024), (256, 1, 256, 16, 1024),
+                               (256, 1, 256, 8, 1024),
                                (256, 1, 256, 4, 1024), (512, 2, 512, 8, 2048), (512, 2, 512, 16, 2048)]
         self.u3_sizes_block = [(512, 2, 512, 4, 2048)]
         self.enc_u3_short = []
@@ -31,6 +32,12 @@ class SSMA(nn.Module):
         self.integrate_fuse_skip_sizes = [(256, 24), (256, 24)]
         self.integrate_fuse_skip_blocks = []
         self._init_integrate_fuse_skip(self.integrate_fuse_skip_blocks, self.integrate_fuse_skip_sizes)
+
+        self.eASPP_atrous_branches_r = [3, 6, 12]
+        self.eASPP_branches = []
+        self._init_eASPP_branches(self.eASPP_branches, self.eASPP_atrous_branches_r)
+        self.eASPP_fin_conv = nn.Conv2d(1280, 256, kernel_size=1)
+        self.eASPP_fin_conv_bn = nn.BatchNorm2d(256)
 
         self._init_u1()
         self._init_u2(self.enc_u2_short, self.u2_sizes_short, s=1)
@@ -45,7 +52,7 @@ class SSMA(nn.Module):
         self.enc_skip2_conv_bn = nn.BatchNorm2d(24)
 
         # decoder layers
-        self.dec_deconv_1 = nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2) # kernel-size as defined in og-code
+        self.dec_deconv_1 = nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2)  # kernel-size as defined in og-code
         self.dec_deconv_1_bn = nn.BatchNorm2d(256)
         self.dec_deconv_2 = nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2)
         self.dec_deconv_2_bn = nn.BatchNorm2d(256)
@@ -67,8 +74,6 @@ class SSMA(nn.Module):
         self.aux_conv1_bn = nn.BatchNorm2d(256)
         self.aux_conv2 = nn.Conv2d(256, self.num_categories, 1)
         self.aux_conv2_bn = nn.BatchNorm2d(256)
-
-
 
     def _init_u1(self):
         self.enc_conv_u1_1 = nn.Conv2d(64, 64, kernel_size=1, stride=1)
@@ -100,6 +105,7 @@ class SSMA(nn.Module):
                 nn.Conv2d(x[-1], x[0], kernel_size=1, stride=1),
                 nn.BatchNorm2d(x[0]),
                 nn.Conv2d(x[0], x[2] / 2, dilation=x[1], kernel_size=3, stride=1, padding=1),
+                # if dilation: more padding
                 nn.BatchNorm2d(x[2] / 2),
                 nn.Conv2d(x[0], x[2] / 2, dilation=x[3], kernel_size=3, stride=1, padding=1),
                 nn.BatchNorm2d(x[2] / 2),
@@ -118,6 +124,31 @@ class SSMA(nn.Module):
                 nn.BatchNorm2d(x[0])
             ]
             blocks.append(cur_ssma)
+
+    def _init_eASPP_branches(self, blocks, rates):
+        # branch 1: 1x1 convolution
+        blocks.append([
+            nn.Conv2d(2048, 256, kernel_size=1),
+            nn.BatchNorm2d(256)
+        ])
+        # branch 2-4: atrous pooling branches
+        for rate in rates:
+            atrous_branch = [
+                nn.Conv2d(2048, 64, kernel_size=1),
+                nn.BatchNorm2d(64),
+                nn.Conv2d(64, 64, kernel_size=3, dilation=rate, padding=rate),
+                nn.BatchNorm2d(64),
+                nn.Conv2d(64, 64, kernel_size=3, dilation=rate, padding=rate),
+                nn.BatchNorm2d(64),
+                nn.Conv2d(64, 256, kernel_size=1),
+                nn.BatchNorm2d(64),
+            ]
+            blocks.append(atrous_branch)
+        # branch 5: image pooling, image-level feature (ParseNet)
+        blocks.append([
+            nn.Conv2d(2048, 256, 1),
+            nn.BatchNorm2d(256)
+        ])
 
     def _init_integrate_fuse_skip(self, blocks, sizes):
         for x in sizes:
@@ -149,7 +180,27 @@ class SSMA(nn.Module):
         return x_12
 
     def eASPP(self, x):
-        pass
+        # branch 1: 1x1 convolution
+        branch = self.eASPP_branches[0]
+        out = torch.relu(branch[1](branch[0](x)))  # with or without relu?
+
+        # branch 2-4: atrous pooling
+        for i in range(1, 4):
+            branch = self.eASPP_branches[i]
+            y = torch.relu(branch[1](branch[0](x)))
+            y = torch.relu(branch[3](branch[2](y)))
+            y = torch.relu(branch[5](branch[4](y)))  # with or without relu?
+            out = torch.cat((out, y), 1)
+
+        # branch 5: image pooling
+        branch = self.eASPP_branches[4]
+        x = nn.AdaptiveAvgPool2d((1, 1))(x)
+        x = torch.relu(branch[1](branch[0](x)))  # with or without relu?
+        x = nn.Upsample((24, 48), mode="bilinear")(x)
+
+        out = torch.cat((out, x), 1)
+
+        return torch.relu(self.eASPP_fin_conv_bn(self.eASPP_fin_conv(out)))  # with or without relu?
 
     def encode(self, x):
         x = F.relu(self.enc_conv_1_bn(self.enc_conv_1(x)))
@@ -157,13 +208,15 @@ class SSMA(nn.Module):
         x = self.enc_unit_1(x)
         x = self.enc_unit_2(x, self.enc_u2_short[0], block=False)
 
-        x = self.enc_unit_2(x, self.enc_u2_short[1], block=False) # this connection goes to conv and then decoder/skip 2
+        x = self.enc_unit_2(x, self.enc_u2_short[1],
+                            block=False)  # this connection goes to conv and then decoder/skip 2
         s2 = self.enc_skip2_conv_bn(self.enc_skip2_conv(x))
 
         x = self.enc_unit_2(x, self.enc_u2_block[0], block=True)
         x = self.enc_unit_2(x, self.enc_u2_short[2], block=False)
         x = self.enc_unit_2(x, self.enc_u2_short[3], block=False)
-        x = self.enc_unit_3(x, self.enc_u3_short[0], block=False) # this connection goes to conv and then decoder/skip 1
+        x = self.enc_unit_3(x, self.enc_u3_short[0],
+                            block=False)  # this connection goes to conv and then decoder/skip 1
         s1 = self.enc_skip1_conv_bn(self.enc_skip1_conv(x))
 
         x = self.enc_unit_2(x, self.enc_u3_block[1], block=True)
