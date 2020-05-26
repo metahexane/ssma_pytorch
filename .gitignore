@@ -5,4 +5,7 @@
 .idea/workspace.xml
 .idea/inspectionProfiles/profiles_settings.xml
 
+src/results/*
 src/data/*
+src/__pycache__/loader.cpython-37.pyc
+src/__pycache__/ssma.cpython-37.pyc
