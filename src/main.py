@@ -28,6 +28,10 @@ for i in range(iters):
 
     a1, a2, res = model(mod1, mod2)
 
+    a1 = torch.softmax(a1, dim=1)
+    a2 = torch.softmax(a2, dim=1)
+    res = torch.softmax(res, dim=1)
+
     # loss
     res_loss = nn.CrossEntropyLoss()
     aux1_loss = nn.CrossEntropyLoss()
