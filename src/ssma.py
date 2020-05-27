@@ -31,44 +31,68 @@ class SSMA(nn.Module):
         self.ssma_sizes = [(24, 6), (24, 6), (2048, 16)]
         self.ssma_blocks = nn.ModuleList([])
         self._init_ssma(self.ssma_blocks, self.ssma_sizes)
+        for i, block in enumerate(self.ssma_blocks):
+            if str(type(block)) == "<class 'torch.nn.modules.conv.Conv2d'>":
+                self._init_eASPP_branches(block.weight, self.eASPP_atrous_branches_r)
 
         self.integrate_fuse_skip_sizes = [(256, 24), (256, 24)]
         self.integrate_fuse_skip_blocks = nn.ModuleList([])
         self._init_integrate_fuse_skip(self.integrate_fuse_skip_blocks, self.integrate_fuse_skip_sizes)
+        for i, block in enumerate(self.integrate_fuse_skip_blocks):
+            if str(type(block)) == "<class 'torch.nn.modules.conv.Conv2d'>":
+                self._init_eASPP_branches(block.weight, self.eASPP_atrous_branches_r)
 
         self.eASPP_atrous_branches_r = [3, 6, 12]
         self.eASPP_branches = nn.ModuleList([])
         self._init_eASPP_branches(self.eASPP_branches, self.eASPP_atrous_branches_r)
+        for i, blocks in enumerate(self.integrate_fuse_skip_blocks):
+            for ii, block in enumerate(blocks):
+                if str(type(block)) == "<class 'torch.nn.modules.conv.Conv2d'>":
+                    self._init_eASPP_branches(block.weight, self.eASPP_atrous_branches_r)
+
         self.eASPP_fin_conv = nn.Conv2d(1280, 256, kernel_size=1)
+        nn.init.xavier_normal_(self.eASPP_fin_conv.weight, gain=nn.init.calculate_gain('relu'))
         self.eASPP_fin_conv_bn = nn.BatchNorm2d(256)
 
         self.enc_skip1_conv = nn.Conv2d(256, 24, kernel_size=1, stride=1)
+        nn.init.xavier_normal_(self.enc_skip1_conv.weight, gain=nn.init.calculate_gain('relu'))
         self.enc_skip1_conv_bn = nn.BatchNorm2d(24)
         self.enc_skip2_conv = nn.Conv2d(512, 24, kernel_size=1, stride=1)
+        nn.init.xavier_normal_(self.enc_skip2_conv.weight, gain=nn.init.calculate_gain('relu'))
         self.enc_skip2_conv_bn = nn.BatchNorm2d(24)
 
         # decoder layers
         self.dec_deconv_1 = nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1)  # kernel-size as defined in og-code
+        nn.init.xavier_normal_(self.dec_deconv_1.weight, gain=nn.init.calculate_gain('relu'))
         self.dec_deconv_1_bn = nn.BatchNorm2d(256)
         self.dec_deconv_2 = nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1)
+        nn.init.xavier_normal_(self.dec_deconv_2.weight, gain=nn.init.calculate_gain('relu'))
         self.dec_deconv_2_bn = nn.BatchNorm2d(256)
         self.dec_deconv_3 = nn.ConvTranspose2d(self.num_categories, self.num_categories, kernel_size=8, stride=4, padding=2)
+        nn.init.xavier_normal_(self.dec_deconv_3.weight, gain=nn.init.calculate_gain('relu'))
         self.dec_deconv_3_bn = nn.BatchNorm2d(self.num_categories)
         self.dec_conv_1 = nn.Conv2d(280, 256, 3, padding=1)
+        nn.init.xavier_normal_(self.dec_conv_1.weight, gain=nn.init.calculate_gain('relu'))
         self.dec_conv_1_bn = nn.BatchNorm2d(256)
         self.dec_conv_2 = nn.Conv2d(256, 256, 3, padding=1)
+        nn.init.xavier_normal_(self.dec_conv_2.weight, gain=nn.init.calculate_gain('relu'))
         self.dec_conv_2_bn = nn.BatchNorm2d(256)
         self.dec_conv_3 = nn.Conv2d(280, 256, 3, padding=1)
+        nn.init.xavier_normal_(self.dec_conv_3.weight, gain=nn.init.calculate_gain('relu'))
         self.dec_conv_3_bn = nn.BatchNorm2d(256)
         self.dec_conv_4 = nn.Conv2d(256, 256, 3, padding=1)
+        nn.init.xavier_normal_(self.dec_conv_4.weight, gain=nn.init.calculate_gain('relu'))
         self.dec_conv_4_bn = nn.BatchNorm2d(256)
         self.dec_conv_5 = nn.Conv2d(256, self.num_categories, 1)
+        nn.init.xavier_normal_(self.dec_conv_5.weight, gain=nn.init.calculate_gain('relu'))
         self.dec_conv_5_bn = nn.BatchNorm2d(self.num_categories)
 
         # decoder auxiliary layers
         self.aux_conv1 = nn.Conv2d(256, self.num_categories, 1)
+        nn.init.xavier_normal_(self.aux_conv1.weight, gain=nn.init.calculate_gain('relu'))
         self.aux_conv1_bn = nn.BatchNorm2d(self.num_categories)
         self.aux_conv2 = nn.Conv2d(256, self.num_categories, 1)
+        nn.init.xavier_normal_(self.aux_conv2.weight, gain=nn.init.calculate_gain('relu'))
         self.aux_conv2_bn = nn.BatchNorm2d(self.num_categories)
 
     def _init_ssma(self, blocks, sizes):
