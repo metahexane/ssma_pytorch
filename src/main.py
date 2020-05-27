@@ -16,7 +16,7 @@ model.cuda()
 lr = 10**-3
 adam_opt = optim.Adam(model.parameters(), lr=lr)
 
-iters = 100
+iters = 1000
 all_iters = []
 all_losses = []
 

@@ -42,8 +42,8 @@ class DataLoader():
 
     def sample(self, iter, path="data/RAND_CITYSCAPES/"):
         rnd = np.random.randint(0, 9400)
-        a = '%04d' % rnd
-        a = "000" + a + ".png"
+        a = '%07d' % rnd
+        a = a + ".png"
         imgRGB = cv2.imread(path + "RGB/" + a)
         imgDep = cv2.imread(path + "Depth/Depth/" + a)
         imgGT = cv2.imread(path + "GT/LABELS/" + a)
