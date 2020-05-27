@@ -9,3 +9,4 @@ src/results/*
 src/data/*
 src/__pycache__/loader.cpython-37.pyc
 src/__pycache__/ssma.cpython-37.pyc
+src/__pycache__/rep_unit.cpython-37.pyc

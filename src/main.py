@@ -37,7 +37,7 @@ for i in range(iters):
     batch_loss.backward()
     adam_opt.step()
 
-    print("Train iteration " + str(i) + " with loss = " + str(batch_loss.item()))
+    print("Train iteration " + str(i+1) + " with loss = " + str(batch_loss.item()))
 
     all_iters.append(i + 1)
     all_losses.append(batch_loss.item())

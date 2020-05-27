@@ -25,7 +25,7 @@ class DataLoader():
                 data[y, x] = self.get_color(b[y, x])
 
         img = Image.fromarray(data, 'RGB')
-        img.save('ssma ' + str(iter) + '.png')
+        img.save('results/ssma ' + str(iter + 1) + '.png')
 
     def sample_batch(self, batch_size, iter):
         batch_mod1 = []
@@ -42,8 +42,8 @@ class DataLoader():
 
     def sample(self, iter, path="data/RAND_CITYSCAPES/"):
         rnd = np.random.randint(0, 9400)
-        a = '%03d' % rnd
-        a = "0000" + a + ".png"
+        a = '%04d' % rnd
+        a = "000" + a + ".png"
         imgRGB = cv2.imread(path + "RGB/" + a)
         imgDep = cv2.imread(path + "Depth/Depth/" + a)
         imgGT = cv2.imread(path + "GT/LABELS/" + a)
@@ -58,3 +58,4 @@ class DataLoader():
         return np.array([modRGB[:,:,2], modRGB[:,:,1], modRGB[:,:,0]]), \
                np.array([modDepth[:,:,2], modDepth[:,:,1], modDepth[:,:,0]]), \
                modGT[:,:,1]
+
