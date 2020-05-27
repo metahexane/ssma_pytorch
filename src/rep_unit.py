@@ -18,9 +18,9 @@ class BottleneckSSMA(nn.Module):
         self.conv3 = nn.Conv2d(d3, inplanes, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(inplanes)
 
-        # nn.init.xavier_uniform(self.conv2a, gain=nn.init.calculate_gain('relu'))
-        # nn.init.xavier_uniform(self.conv2b, gain=nn.init.calculate_gain('relu'))
-        # nn.init.xavier_uniform(self.conv3, gain=nn.init.calculate_gain('relu'))
+        nn.init.kaiming_uniform_(self.conv2a.weight)
+        nn.init.kaiming_uniform_(self.conv2b.weight)
+        nn.init.kaiming_uniform_(self.conv3.weight)
 
         if copy_from is None:
             self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
