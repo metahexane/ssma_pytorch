@@ -3,9 +3,11 @@ import torch.nn as nn
 import torch.optim as optim
 from ssma import SSMA
 import gc
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def calculate_iou(target: torch.Tensor, pred: torch.Tensor, eps=10**-5):
+
+def calculate_iou(target: torch.Tensor, pred: torch.Tensor, eps=10 ** -5):
     # ensure target dim = pred dim
     assert target.shape == pred.shape
 
@@ -14,7 +16,8 @@ def calculate_iou(target: torch.Tensor, pred: torch.Tensor, eps=10**-5):
 
     return (intersection + eps) / (union + eps)
 
-def train_stage_0(dl, iters=150 * (10**3)):
+
+def train_stage_0(dl, iters=150 * (10 ** 3)):
     # mod1
     model_m1 = SSMA(22)
     model_m1.cuda()
@@ -31,22 +34,24 @@ def train_stage_0(dl, iters=150 * (10**3)):
 
     return model_m1, model_m2
 
-def train_stage_1(dl, models, iters=100 * (10**3)):
+
+def train_stage_1(dl, models, iters=100 * (10 ** 3)):
     model_fusion = SSMA(22)
     model_fusion.cuda()
 
-    lr_enc = 10**-4
-    lr_dec = 10**-3
+    lr_enc = 10 ** -4
+    lr_dec = 10 ** -3
 
-    adam_opt = optim.Adam([{ "params": model_fusion.encoder_mod1, "lr": lr_enc }], lr=lr_enc)
+    adam_opt = optim.Adam([{"params": model_fusion.encoder_mod1, "lr": lr_enc}], lr=lr_enc)
     train_iteration(iters, [model_fusion], [adam_opt], dl)
 
     return model_fusion
 
-def train_stage_2(dl, model, iters=50 * (10**3)):
-    lr_dec = 10**-5
 
-    adam_opt = optim.Adam([{ }], lr=0)
+def train_stage_2(dl, model, iters=50 * (10 ** 3)):
+    lr_dec = 10 ** -5
+
+    adam_opt = optim.Adam([{}], lr=0)
     train_iteration(iters, [model], [adam_opt], dl)
     return model
 
@@ -59,6 +64,7 @@ def train_iteration(iters, models, opts, dl):
             del res
             torch.cuda.empty_cache()
             gc.collect()
+
 
 def train(model, opt, dl, i, batch_size=2):
     model.train()
