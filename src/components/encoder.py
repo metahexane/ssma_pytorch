@@ -1,11 +1,11 @@
-import torch
 from torchvision.models import resnet50
 import torch.nn as nn
-from rep_unit import BottleneckSSMA
+from components.rep_unit import BottleneckSSMA
 
 class Encoder(nn.Module):
 
     def __init__(self):
+        super(Encoder, self).__init__()
         self.enc_skip2_conv = nn.Conv2d(256, 24, kernel_size=1, stride=1)
         self.enc_skip2_conv_bn = nn.BatchNorm2d(24)
         self.enc_skip1_conv = nn.Conv2d(512, 24, kernel_size=1, stride=1)
@@ -49,4 +49,4 @@ class Encoder(nn.Module):
 
         x = self.res_n50_enc.layer4(x)
 
-        return x, s1, s2
+        return x, s2, s1

@@ -20,26 +20,26 @@ class Decoder(nn.Module):
         self.stage2 = nn.Sequential(
             nn.Conv2d(280, 256, 3, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU,
+            nn.ReLU(),
             nn.Conv2d(256, 256, 3, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU,
+            nn.ReLU(),
             nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(256)
         )
         for i, layer in enumerate(self.stage2):
             if str(type(layer)) == "<class 'torch.nn.modules.conv.Conv2d'>" or \
-                                   "<class 'torch.nn.modules.conv.ConvTranspose2d'>":
+                                   str(type(layer)) == "<class 'torch.nn.modules.conv.ConvTranspose2d'>":
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity="relu")
 
         # layers stage 3
         self.stage3 = nn.Sequential(
             nn.Conv2d(280, 256, 3, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU,
+            nn.ReLU(),
             nn.Conv2d(256, 256, 3, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU,
+            nn.ReLU(),
             nn.Conv2d(256, self.num_categories, 1),
             nn.BatchNorm2d(self.num_categories),
             nn.ConvTranspose2d(self.num_categories, self.num_categories, kernel_size=8, stride=4, padding=2),
@@ -47,7 +47,7 @@ class Decoder(nn.Module):
         )
         for i, layer in enumerate(self.stage2):
             if str(type(layer)) == "<class 'torch.nn.modules.conv.Conv2d'>" or \
-                                   "<class 'torch.nn.modules.conv.ConvTranspose2d'>":
+                                   str(type(layer)) == "<class 'torch.nn.modules.conv.ConvTranspose2d'>":
                 nn.init.kaiming_uniform_(layer.weight, nonlinearity="relu")
 
         # decoder auxiliary layers
@@ -60,10 +60,10 @@ class Decoder(nn.Module):
 
         # decoder fuse skip layers
         self.fuse_conv1 = nn.Conv2d(256, 24, 1)
-        nn.init.kaiming_uniform_(self.fuse_conv1, nonlinearity="relu")
+        nn.init.kaiming_uniform_(self.fuse_conv1.weight, nonlinearity="relu")
         self.fuse_conv1_bn = nn.BatchNorm2d(24)
         self.fuse_conv2 = nn.Conv2d(256, 24, 1)
-        nn.init.kaiming_uniform_(self.fuse_conv2, nonlinearity="relu")
+        nn.init.kaiming_uniform_(self.fuse_conv2.weight, nonlinearity="relu")
         self.fuse_conv2_bn = nn.BatchNorm2d(24)
 
     def forward(self, x, fuse_skip1, fuse_skip2):
@@ -79,7 +79,7 @@ class Decoder(nn.Module):
         # stage 2
         x = self.stage2(x)
         y2 = self.aux(x, self.aux_conv2, self.aux_conv2_bn, 4)
-        if self.fussion:
+        if self.fusion:
             int_fuse_skip = self.integrate_fuse_skip(x, fuse_skip2, self.fuse_conv2, self.fuse_conv2_bn)
             x = torch.cat((x, int_fuse_skip), 1)
         else:

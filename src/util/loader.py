@@ -13,6 +13,7 @@ class DataLoader():
         for x in classes:
             self.color_map[x[3]] = [x[0], x[1], x[2]]
 
+        self.num_labels = len(np.unique(classes[:, 2]))
         self.num_examples = num_examples
         self.train_size = int(train_size * self.num_examples)
         self.test_size = int(test_size * self.num_examples)
@@ -67,8 +68,8 @@ class DataLoader():
         modDepth = cv2.resize(imgDep, dsize=(768, 384), interpolation=cv2.INTER_NEAREST) / 255
         modGT = cv2.resize(imgGT, dsize=(768, 384), interpolation=cv2.INTER_NEAREST) / 255
 
-        if iter % 5 == 0:
-            print("Loading in '" + a + "'...")
+        # if iter % 5 == 0:
+        #     print("Loading in '" + a + "'...")
 
         # opencv saves it as BGR instead of RGB
         return np.array([modRGB[:,:,2], modRGB[:,:,1], modRGB[:,:,0]]), \

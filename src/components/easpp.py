@@ -18,16 +18,16 @@ class eASPP(nn.Module):
             branch = nn.Sequential(
                 nn.Conv2d(2048, 64, kernel_size=1),
                 nn.BatchNorm2d(64),
-                nn.ReLU,
+                nn.ReLU(),
                 nn.Conv2d(64, 64, kernel_size=3, dilation=rate, padding=rate),
                 nn.BatchNorm2d(64),
-                nn.ReLU,
+                nn.ReLU(),
                 nn.Conv2d(64, 64, kernel_size=3, dilation=rate, padding=rate),
                 nn.BatchNorm2d(64),
-                nn.ReLU,
+                nn.ReLU(),
                 nn.Conv2d(64, 256, kernel_size=1),
                 nn.BatchNorm2d(256),
-                nn.ReLU,
+                nn.ReLU(),
             )
             self.branch234.append(branch)
         for i, sequence in enumerate(self.branch234):
@@ -50,11 +50,11 @@ class eASPP(nn.Module):
         out = torch.relu(self.branch1_bn(self.branch1_conv(x)))
 
         # branch 2-4: atrous pooling
-        y = self.branch2(x)
+        y = self.branch234[0](x)
         out = torch.cat((out, y), 1)
-        y = self.branch3(x)
+        y = self.branch234[1](x)
         out = torch.cat((out, y), 1)
-        y = self.branch4(x)
+        y = self.branch234[2](x)
         out = torch.cat((out, y), 1)
 
         # branch 5: image pooling

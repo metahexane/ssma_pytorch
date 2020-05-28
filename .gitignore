@@ -10,3 +10,11 @@ src/data/*
 src/__pycache__/loader.cpython-37.pyc
 src/__pycache__/ssma.cpython-37.pyc
 src/__pycache__/rep_unit.cpython-37.pyc
+src/__pycache__/adapnet.cpython-37.pyc
+src/components/__pycache__/decoder.cpython-37.pyc
+src/components/__pycache__/easpp.cpython-37.pyc
+src/components/__pycache__/encoder.cpython-37.pyc
+src/components/__pycache__/rep_unit.cpython-37.pyc
+src/components/__pycache__/ssma.cpython-37.pyc
+src/util/__pycache__/helper.cpython-37.pyc
+src/util/__pycache__/loader.cpython-37.pyc

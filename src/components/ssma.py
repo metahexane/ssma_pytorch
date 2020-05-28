@@ -2,9 +2,10 @@ import torch
 import torch.nn as nn
 
 
-class SSMAUnit(nn.Module):
+class SSMA(nn.Module):
 
     def __init__(self, features, bottleneck):
+        super(SSMA, self).__init__()
         reduce_size = int(features / bottleneck)
         double_features = int(2 * features)
         self.link = nn.Sequential(
