@@ -7,11 +7,22 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DataLoader():
 
-    def __init__(self):
+    def __init__(self, num_examples=9400, train_size=0.6, test_size=0.3):
         self.color_map = {}
         classes = np.loadtxt("data/classes.txt")
         for x in classes:
             self.color_map[x[3]] = [x[0], x[1], x[2]]
+
+        self.num_examples = num_examples
+        self.train_size = int(train_size * self.num_examples)
+        self.test_size = int(test_size * self.num_examples)
+        self.validation_size = self.num_examples - self.train_size - self.test_size
+
+        all_samples = np.arange(0, self.num_examples)
+        self.train_set = np.random.choice(all_samples, self.train_size, replace=False)
+        all_samples = np.delete(all_samples, self.train_set)
+        self.test_set = np.random.choice(all_samples, self.test_size, replace=False)
+        self.validation_set = all_samples
 
     def get_color(self, x):
         return self.color_map[x]
@@ -27,12 +38,18 @@ class DataLoader():
         img = Image.fromarray(data, 'RGB')
         img.save('results/ssma ' + str(iter + 1) + '.png')
 
-    def sample_batch(self, batch_size, iter):
+    def sample_batch(self, batch_size, iter, batch="train"):
         batch_mod1 = []
         batch_mod2 = []
         batch_gt = []
         for x in range(batch_size):
-            m1, m2, gt = self.sample(iter)
+            cur_sample = np.random.choice(self.train_set, 1)[0]
+            if batch == "test":
+                cur_sample = np.random.choice(self.test_set, 1)[0]
+            elif batch == "validation":
+                cur_sample = np.random.choice(self.validation_set, 1)[0]
+
+            m1, m2, gt = self.sample(cur_sample, iter)
 
             batch_mod1.append(torch.from_numpy(m1).float().to(device))
             batch_mod2.append(torch.from_numpy(m2).float().to(device))
@@ -40,9 +57,8 @@ class DataLoader():
 
         return torch.stack(batch_mod1), torch.stack(batch_mod2), torch.stack(batch_gt).long()
 
-    def sample(self, iter, path="data/RAND_CITYSCAPES/"):
-        rnd = np.random.randint(0, 9400)
-        a = '%07d' % rnd
+    def sample(self, sample_id, iter, path="data/RAND_CITYSCAPES/"):
+        a = '%07d' % sample_id
         a = a + ".png"
         imgRGB = cv2.imread(path + "RGB/" + a)
         imgDep = cv2.imread(path + "Depth/Depth/" + a)
