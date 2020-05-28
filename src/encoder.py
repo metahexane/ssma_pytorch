@@ -4,15 +4,15 @@ import torch.nn as nn
 from rep_unit import BottleneckSSMA
 
 class Encoder(nn.Module):
-    
+
     def __init__(self):
         self.enc_skip2_conv = nn.Conv2d(256, 24, kernel_size=1, stride=1)
         self.enc_skip2_conv_bn = nn.BatchNorm2d(24)
         self.enc_skip1_conv = nn.Conv2d(512, 24, kernel_size=1, stride=1)
         self.enc_skip1_conv_bn = nn.BatchNorm2d(24)
 
-        nn.init.kaiming_uniform_(self.enc_skip2_conv.weight)
-        nn.init.kaiming_uniform_(self.enc_skip1_conv.weight)
+        nn.init.kaiming_uniform_(self.enc_skip2_conv.weight, nonlinearity="relu")
+        nn.init.kaiming_uniform_(self.enc_skip1_conv.weight, nonlinearity="relu")
 
         self.res_n50_enc = resnet50(pretrained=True)
         self.res_n50_enc.layer2[-1] = BottleneckSSMA(512, 128, 1, 2, 64, copy_from=self.res_n50_enc.layer2[-1])

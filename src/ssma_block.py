@@ -18,9 +18,9 @@ class SSMAUnit(nn.Module):
             nn.BatchNorm2d(features)
         )
 
-        nn.init.kaiming_uniform_(self.link[0].weight)
-        nn.init.kaiming_uniform_(self.link[2].weight)
-        nn.init.kaiming_uniform_(self.final_conv[0].weight)
+        nn.init.kaiming_uniform_(self.link[0].weight, nonlinearity="relu")
+        nn.init.kaiming_uniform_(self.link[2].weight, nonlinearity="relu")
+        nn.init.kaiming_uniform_(self.final_conv[0].weight, nonlinearity="relu")
 
     def forward(self, x1, x2):
         x_12 = torch.cat((x1, x2), dim=1)

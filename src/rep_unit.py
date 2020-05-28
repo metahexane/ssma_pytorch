@@ -3,7 +3,6 @@ import torch
 
 
 class BottleneckSSMA(nn.Module):
-    expansion = 4
 
     def __init__(self, inplanes, planes, r1, r2, d3, stride=1, downsample=None, copy_from=None):
         super(BottleneckSSMA, self).__init__()
@@ -18,9 +17,9 @@ class BottleneckSSMA(nn.Module):
         self.conv3 = nn.Conv2d(d3, inplanes, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(inplanes)
 
-        nn.init.kaiming_uniform_(self.conv2a.weight)
-        nn.init.kaiming_uniform_(self.conv2b.weight)
-        nn.init.kaiming_uniform_(self.conv3.weight)
+        nn.init.kaiming_uniform_(self.conv2a.weight, nonlinearity="relu")
+        nn.init.kaiming_uniform_(self.conv2b.weight, nonlinearity="relu")
+        nn.init.kaiming_uniform_(self.conv3.weight, nonlinearity="relu")
 
         if copy_from is None:
             self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
