@@ -65,7 +65,7 @@ class DataLoader():
         imgGT = cv2.imread(path + "GT/LABELS/" + a)
         modRGB = cv2.resize(imgRGB, dsize=(768, 384), interpolation=cv2.INTER_LINEAR) / 255
         modDepth = cv2.resize(imgDep, dsize=(768, 384), interpolation=cv2.INTER_NEAREST) / 255
-        modGT = cv2.resize(imgGT, dsize=(768, 384), interpolation=cv2.INTER_NEAREST) / 255
+        modGT = cv2.resize(imgGT, dsize=(768, 384), interpolation=cv2.INTER_NEAREST)
 
         # if iter % 5 == 0:
         #     print("Loading in '" + a + "'...")
