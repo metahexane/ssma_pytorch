@@ -4,18 +4,9 @@ import torch.optim as optim
 from adapnet import AdapNet
 import gc
 from tqdm import tqdm
+from util.eval import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def calculate_iou(target: torch.Tensor, pred: torch.Tensor, eps=10 ** -5):
-    # ensure target dim = pred dim
-    assert target.shape == pred.shape
-
-    intersection = (target & pred).float().sum((1, 2))
-    union = (target | pred).float().sum((1, 2))
-
-    return (intersection + eps) / (union + eps)
 
 
 def train_stage_0(dl, iters=150 * (10 ** 3)):
@@ -73,6 +64,7 @@ def train_stage_2(dl, model, iters=50 * (10 ** 3)):
 
 
 def train_iteration(iters, models, opts, dl, batch_size=2):
+    epochs = iters // batch_size
     for i in tqdm(range(iters)):
         mod1, mod2, gt_all = dl.sample_batch(batch_size, i + 1)
 
@@ -87,6 +79,16 @@ def train_iteration(iters, models, opts, dl, batch_size=2):
             torch.cuda.empty_cache()
             gc.collect()
 
+        if (i + 1) % epochs == 0 or i == iters - 1:
+            iou = evaluate(models[0], dl, mode="validation")
+            print("Evaluation of validation set @ " + str(i))
+            print("mIoU: " + str(iou.mean().item()))
+            print("IoU: " + str(iou))
+
+    iou = evaluate(models[0], dl, mode="test")
+    print("Evaluation of test set")
+    print("mIoU: " + str(iou.mean().item()))
+    print("IoU: " + str(iou))
 
 def train(model, opt, input, target, fusion=False):
     model.train()
