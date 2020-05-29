@@ -4,7 +4,7 @@ from components.rep_unit import BottleneckSSMA
 
 class Encoder(nn.Module):
 
-    def __init__(self):
+    def __init__(self, stage_listener=False):
         super(Encoder, self).__init__()
         self.enc_skip2_conv = nn.Conv2d(256, 24, kernel_size=1, stride=1)
         self.enc_skip2_conv_bn = nn.BatchNorm2d(24)
@@ -20,8 +20,11 @@ class Encoder(nn.Module):
         u3_sizes_short = [(256, 1, 256, 2, 1024), (256, 1, 256, 16, 1024), (256, 1, 256, 8, 1024),
                           (256, 1, 256, 4, 1024)]
         for i, x in enumerate(u3_sizes_short):
+            dropout = False
+            if i == 0:
+                dropout = True
             self.res_n50_enc.layer3[2 + i] = BottleneckSSMA(x[-1], x[0], x[1], x[3], x[2],
-                                                       copy_from=self.res_n50_enc.layer3[2 + i])
+                                                       copy_from=self.res_n50_enc.layer3[2 + i], drop_out=dropout)
 
         u3_sizes_block = [(512, 2, 512, 4, 2048), (512, 2, 512, 8, 2048), (512, 2, 512, 16, 2048)]
         for i, res in enumerate(u3_sizes_block):

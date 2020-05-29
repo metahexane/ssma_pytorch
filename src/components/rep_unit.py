@@ -4,8 +4,10 @@ import torch
 
 class BottleneckSSMA(nn.Module):
 
-    def __init__(self, inplanes, planes, r1, r2, d3, stride=1, downsample=None, copy_from=None):
+    def __init__(self, inplanes, planes, r1, r2, d3, stride=1, downsample=None, copy_from=None, drop_out=False):
         super(BottleneckSSMA, self).__init__()
+        self.dropout = drop_out
+
         half_d3 = int(d3 / 2)
 
         self.conv2a = nn.Conv2d(planes, half_d3, kernel_size=3, stride=1, dilation=r1,
@@ -57,5 +59,9 @@ class BottleneckSSMA(nn.Module):
 
         out += residual
         out = self.relu(out)
+
+        if self.dropout:
+            m = nn.Dropout(p=0.5)
+            out = m(out)
 
         return out
