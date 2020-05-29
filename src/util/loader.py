@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from PIL import Image
 import torch
+from torchvision import transforms
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -55,6 +56,8 @@ class DataLoader():
             batch_mod2.append(torch.from_numpy(m2).float().to(device))
             batch_gt.append(torch.from_numpy(gt).long().to(device))
 
+        batch_mod1, batch_mod2 = self.data_augmentation([batch_mod1, batch_mod2])
+
         return torch.stack(batch_mod1), torch.stack(batch_mod2), torch.stack(batch_gt).long()
 
     def sample(self, sample_id, path="data/RAND_CITYSCAPES/"):
@@ -75,3 +78,25 @@ class DataLoader():
                np.array([modDepth[:,:,2], modDepth[:,:,1], modDepth[:,:,0]]), \
                modGT[:,:,1]
 
+    def data_augmentation(self, mods):
+        transformed_images = []
+        for mod in mods:
+            rand_crop = np.random.uniform(low=0.8, high=0.9)
+            rand_scale = np.random.uniform(low=0.5, high=2.0)
+            rand_bright = np.random.uniform(low=0, high=0.4)
+            rand_cont = np.random.uniform(low=0, high=0.5)
+            transform = transforms.RandomApply([
+                transforms.RandomApply([transforms.RandomRotation((-13, 13))], p=0.25),
+                transforms.RandomApply([transforms.ColorJitter(brightness=rand_bright)], p=0.25),
+                transforms.RandomApply([transforms.ColorJitter(contrast=rand_cont)], p=0.25),
+                transforms.RandomApply([transforms.RandomCrop((768*rand_crop, 384*rand_crop)),
+                                        transforms.Resize((768, 384))], p=0.25),
+                transforms.RandomApply([transforms.Resize((768*rand_scale, 384*rand_crop)),
+                                        transforms.Resize((768, 384))], p=0.25),
+                transforms.RandomHorizontalFlip(p=0.25),
+                transforms.RandomVerticalFlip(p=0.25),
+            ], p=0.25)
+            transformed_img = transform(mod)
+            transformed_images.append(transformed_img)
+
+        return transformed_images
