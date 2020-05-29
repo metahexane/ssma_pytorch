@@ -56,22 +56,27 @@ class DataLoader():
             batch_mod2.append(torch.from_numpy(m2).float().to(device))
             batch_gt.append(torch.from_numpy(gt).long().to(device))
 
-        batch_mod1, batch_mod2 = self.data_augmentation([batch_mod1, batch_mod2])
+        # batch_mod1, batch_mod2 = [batch_mod1, batch_mod2])
 
         return torch.stack(batch_mod1), torch.stack(batch_mod2), torch.stack(batch_gt).long()
 
     def sample(self, sample_id, path="data/RAND_CITYSCAPES/"):
         a = '%07d' % sample_id
         a = a + ".png"
-        imgRGB = cv2.imread(path + "RGB/" + a)
-        imgDep = cv2.imread(path + "Depth/Depth/" + a)
+
+        pilRGB = Image.open(path + "RGB/" + a).convert('RGB')
+        pilDep = Image.open(path + "Depth/Depth/" + a).convert('RGB')
+
+        pilRGB = self.data_augmentation(pilRGB)
+        pilDep = self.data_augmentation(pilDep)
+
+        imgRGB = np.array(pilRGB)[:, :, ::-1]
+        imgDep = np.array(pilDep)[:, :, ::-1]
+
         imgGT = cv2.imread(path + "GT/LABELS/" + a)
         modRGB = cv2.resize(imgRGB, dsize=(768, 384), interpolation=cv2.INTER_LINEAR) / 255
         modDepth = cv2.resize(imgDep, dsize=(768, 384), interpolation=cv2.INTER_NEAREST) / 255
         modGT = cv2.resize(imgGT, dsize=(768, 384), interpolation=cv2.INTER_NEAREST)
-
-        # if iter % 5 == 0:
-        #     print("Loading in '" + a + "'...")
 
         # opencv saves it as BGR instead of RGB
         return np.array([modRGB[:,:,2], modRGB[:,:,1], modRGB[:,:,0]]), \
@@ -79,24 +84,21 @@ class DataLoader():
                modGT[:,:,1]
 
     def data_augmentation(self, mods):
-        transformed_images = []
-        for mod in mods:
-            rand_crop = np.random.uniform(low=0.8, high=0.9)
-            rand_scale = np.random.uniform(low=0.5, high=2.0)
-            rand_bright = np.random.uniform(low=0, high=0.4)
-            rand_cont = np.random.uniform(low=0, high=0.5)
-            transform = transforms.RandomApply([
-                transforms.RandomApply([transforms.RandomRotation((-13, 13))], p=0.25),
-                transforms.RandomApply([transforms.ColorJitter(brightness=rand_bright)], p=0.25),
-                transforms.RandomApply([transforms.ColorJitter(contrast=rand_cont)], p=0.25),
-                transforms.RandomApply([transforms.RandomCrop((768*rand_crop, 384*rand_crop)),
-                                        transforms.Resize((768, 384))], p=0.25),
-                transforms.RandomApply([transforms.Resize((768*rand_scale, 384*rand_crop)),
-                                        transforms.Resize((768, 384))], p=0.25),
-                transforms.RandomHorizontalFlip(p=0.25),
-                transforms.RandomVerticalFlip(p=0.25),
-            ], p=0.25)
-            transformed_img = transform(mod)
-            transformed_images.append(transformed_img)
+        rand_crop = np.random.uniform(low=0.8, high=0.9)
+        rand_scale = np.random.uniform(low=0.5, high=2.0)
+        rand_bright = np.random.uniform(low=0, high=0.4)
+        rand_cont = np.random.uniform(low=0, high=0.5)
+        transform = transforms.RandomApply([
+            transforms.RandomApply([transforms.RandomRotation((-13, 13))], p=0.25),
+            transforms.RandomApply([transforms.ColorJitter(brightness=rand_bright)], p=0.25),
+            transforms.RandomApply([transforms.ColorJitter(contrast=rand_cont)], p=0.25),
+            transforms.RandomApply([transforms.RandomCrop((int(768*rand_crop), int(384*rand_crop))),
+                                    transforms.Resize((768, 384))], p=0.25),
+            transforms.RandomApply([transforms.Resize((int(768*rand_scale), int(384*rand_crop))),
+                                    transforms.Resize((768, 384))], p=0.25),
+            transforms.RandomHorizontalFlip(p=0.25),
+            transforms.RandomVerticalFlip(p=.25),
+        ], p=.25)
+        transformed_img = transform(mods)
 
-        return transformed_images
+        return transformed_img
