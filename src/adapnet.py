@@ -23,9 +23,9 @@ class AdapNet(nn.Module):
 
         if len(encoders) > 0:
             self.encoder_mod1 = encoders[0]
-            self.encode_mod1.layer3[2].dropout = False
+            self.encoder_mod1.res_n50_enc.layer3[2].dropout = False
             self.encoder_mod2 = encoders[1]
-            self.encode_mod1.layer3[2].dropout = False
+            self.encoder_mod2.res_n50_enc.layer3[2].dropout = False
             self.ssma_s1 = SSMA(24, 6)
             self.ssma_s2 = SSMA(24, 6)
             self.ssma_res = SSMA(2048, 16)
@@ -40,7 +40,7 @@ class AdapNet(nn.Module):
         """Forward pass
 
         In the case of AdapNet++, only 1 modality is used (either the RGB-image, or the Depth-image). With 'AdapNet++
-        with fusion architechture' two modalities are used (both the RGB-image and the Depth-image).
+        with fusion architecture' two modalities are used (both the RGB-image and the Depth-image).
 
         :param mod1: modality 1
         :param mod2: modality 2

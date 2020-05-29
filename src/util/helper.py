@@ -37,7 +37,7 @@ def train_stage_1(dl, batch_size, iters=150 * (10 ** 3)):
     return model_m1, model_m2
 
 
-def train_stage_2(dl, models, iters=100 * (10 ** 3)):
+def train_stage_2(dl, models, batch_size, iters=100 * (10 ** 3)):
     """Train stage 2 of AdapNet++
 
     The second stage of AdapNet++ trains a modified AdapNet model that has two encoders, each with their own modality
@@ -63,12 +63,12 @@ def train_stage_2(dl, models, iters=100 * (10 ** 3)):
         {"params": model_fusion.ssma_s2.parameters()},
         {"params": model_fusion.ssma_res.parameters()},
         {"params": model_fusion.decoder.parameters(), "lr": lr_dec}], lr=lr_enc)
-    train_iteration(iters, [model_fusion], [adam_opt], dl)
+    train_iteration(iters, [model_fusion], [adam_opt], dl, batch_size)
 
     return model_fusion
 
 
-def train_stage_3(dl, model, iters=50 * (10 ** 3)):
+def train_stage_3(dl, model, batch_size, iters=50 * (10 ** 3)):
     """Train stage 2 of AdapNet++
 
     The third and last stage of AdapNet++ trains the fused model from stage 2 again, but does not update the weights
@@ -90,7 +90,7 @@ def train_stage_3(dl, model, iters=50 * (10 ** 3)):
         {"params": model.encoder_mod1.parameters(), "lr": 0},
         {"params": model.encoder_mod2.parameters(), "lr": 0}
     ], lr=lr_dec)
-    train_iteration(iters, [model], [adam_opt], dl)
+    train_iteration(iters, [model], [adam_opt], dl, batch_size)
     return model
 
 
@@ -104,7 +104,7 @@ def train_iteration(iters, models, opts, dl, batch_size=2):
     :param batch_size: batch size
     :return: updates the models
     """
-    epochs = iters // batch_size
+    epochs = dl.train_size // batch_size
     for i in tqdm(range(iters)):
         mod1, mod2, gt_all = dl.sample_batch(batch_size, i + 1)
 

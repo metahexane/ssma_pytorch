@@ -22,8 +22,9 @@ class DataLoader():
         all_samples = np.arange(0, self.num_examples)
         self.train_set = np.random.choice(all_samples, self.train_size, replace=False)
         all_samples = np.delete(all_samples, self.train_set)
-        self.test_set = [ 1, 2, 3, 4 ]#np.random.choice(all_samples, 50, replace=False) # self.test_size
-        self.validation_set = [5, 6, 7, 8] #np.random.choice(all_samples, 50, replace=False)
+        self.test_set = np.random.choice(all_samples, self.test_size, replace=False)
+        all_samples = np.delete(all_samples, self.test_set)
+        self.validation_set = all_samples
 
     def get_color(self, x):
         return self.color_map[x]
@@ -56,8 +57,6 @@ class DataLoader():
             batch_mod2.append(torch.from_numpy(m2).float().to(device))
             batch_gt.append(torch.from_numpy(gt).long().to(device))
 
-        # batch_mod1, batch_mod2 = [batch_mod1, batch_mod2])
-
         return torch.stack(batch_mod1), torch.stack(batch_mod2), torch.stack(batch_gt).long()
 
     def sample(self, sample_id, path="data/RAND_CITYSCAPES/"):
@@ -73,7 +72,7 @@ class DataLoader():
         imgRGB = np.array(pilRGB)[:, :, ::-1]
         imgDep = np.array(pilDep)[:, :, ::-1]
 
-        imgGT = cv2.imread(path + "GT/LABELS/" + a)
+        imgGT = cv2.imread(path + "GT/LABELS/" + a, cv2.IMREAD_UNCHANGED).astype(np.int8)
         modRGB = cv2.resize(imgRGB, dsize=(768, 384), interpolation=cv2.INTER_LINEAR) / 255
         modDepth = cv2.resize(imgDep, dsize=(768, 384), interpolation=cv2.INTER_NEAREST) / 255
         modGT = cv2.resize(imgGT, dsize=(768, 384), interpolation=cv2.INTER_NEAREST)
@@ -81,7 +80,7 @@ class DataLoader():
         # opencv saves it as BGR instead of RGB
         return np.array([modRGB[:,:,2], modRGB[:,:,1], modRGB[:,:,0]]), \
                np.array([modDepth[:,:,2], modDepth[:,:,1], modDepth[:,:,0]]), \
-               modGT[:,:,1]
+               modGT[:,:,2]
 
     def data_augmentation(self, mods):
         rand_crop = np.random.uniform(low=0.8, high=0.9)

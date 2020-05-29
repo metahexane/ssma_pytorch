@@ -5,9 +5,8 @@ from components.rep_unit import BottleneckSSMA
 class Encoder(nn.Module):
     """PyTorch Module for encoder"""
 
-    def __init__(self, stage_listener=False):
+    def __init__(self):
         super(Encoder, self).__init__()
-        self.dropout = False
 
         self.enc_skip2_conv = nn.Conv2d(256, 24, kernel_size=1, stride=1)
         self.enc_skip2_conv_bn = nn.BatchNorm2d(24)
@@ -23,8 +22,7 @@ class Encoder(nn.Module):
         u3_sizes_short = [(256, 1, 256, 2, 1024), (256, 1, 256, 16, 1024), (256, 1, 256, 8, 1024),
                           (256, 1, 256, 4, 1024)]
         for i, x in enumerate(u3_sizes_short):
-            if i == 0:
-                self.dropout = True
+            dropout = i == 0
             self.res_n50_enc.layer3[2 + i] = BottleneckSSMA(x[-1], x[0], x[1], x[3], x[2],
                                                        copy_from=self.res_n50_enc.layer3[2 + i], drop_out=dropout)
 
