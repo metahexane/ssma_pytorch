@@ -5,7 +5,17 @@ from components.encoder import Encoder
 from components.ssma import SSMA
 
 class AdapNet(nn.Module):
+    """PyTorch module for 'AdapNet++' and 'AdapNet++ with fusion architecture' """
+
     def __init__(self, C, encoders=[]):
+        """Constructor
+
+        :param C: number of categories
+        :param encoders: array of zero or two encoders. If the array is empty, this class is effectively AdapNet++ and a
+                         new encoder will be initialized (used in stage 1). If the array has two encoders, this class
+                         is effectively AdapNet++ with fusion architecture and it will use the two pre-trained encoders
+                         with SSMA fusion (used in stages 2 and 3).
+        """
         super(AdapNet, self).__init__()
 
         self.num_categories = C
@@ -13,7 +23,9 @@ class AdapNet(nn.Module):
 
         if len(encoders) > 0:
             self.encoder_mod1 = encoders[0]
+            self.encode_mod1.layer3[2].dropout = False
             self.encoder_mod2 = encoders[1]
+            self.encode_mod1.layer3[2].dropout = False
             self.ssma_s1 = SSMA(24, 6)
             self.ssma_s2 = SSMA(24, 6)
             self.ssma_res = SSMA(2048, 16)
@@ -22,10 +34,18 @@ class AdapNet(nn.Module):
             self.encoder_mod1 = Encoder()
 
         self.eASPP = eASPP()
-        self.decoder = Decoder(self.num_categories)
-
+        self.decoder = Decoder(self.num_categories, self.fusion)
 
     def forward(self, mod1, mod2=None):
+        """Forward pass
+
+        In the case of AdapNet++, only 1 modality is used (either the RGB-image, or the Depth-image). With 'AdapNet++
+        with fusion architechture' two modalities are used (both the RGB-image and the Depth-image).
+
+        :param mod1: modality 1
+        :param mod2: modality 2
+        :return: final output and auxiliary output 1 and 2
+        """
         m1_x, skip2, skip1 = self.encoder_mod1(mod1)
 
         if self.fusion:

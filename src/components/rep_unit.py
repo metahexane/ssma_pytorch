@@ -3,8 +3,21 @@ import torch
 
 
 class BottleneckSSMA(nn.Module):
+    """PyTorch Module for multi-scale units (modified residual units) for Resnet50 stages"""
 
     def __init__(self, inplanes, planes, r1, r2, d3, stride=1, downsample=None, copy_from=None, drop_out=False):
+        """Constructur
+
+        :param inplanes: input dimension
+        :param planes: output dimension
+        :param r1: dilation rate and padding 1
+        :param r2: dilation rate and padding 2
+        :param d3: split factor
+        :param stride: stride
+        :param downsample: down sample rate
+        :param copy_from: copy of residual unit from second/third stage resnet50
+        :param drop_out: boolean for inclusion of dropout layer
+        """
         super(BottleneckSSMA, self).__init__()
         self.dropout = drop_out
 
@@ -35,6 +48,11 @@ class BottleneckSSMA(nn.Module):
         self.stride = stride
 
     def forward(self, x):
+        """Forward Pass
+
+        :param x: input feature maps
+        :return: output feature maps
+        """
         residual = x
 
         out = self.conv1(x)

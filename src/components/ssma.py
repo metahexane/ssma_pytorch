@@ -3,8 +3,14 @@ import torch.nn as nn
 
 
 class SSMA(nn.Module):
+    """PyTorch Module for SSMA"""
 
     def __init__(self, features, bottleneck):
+        """Constructor
+
+        :param features: number of feature maps
+        :param bottleneck: bottleneck compression rate
+        """
         super(SSMA, self).__init__()
         reduce_size = int(features / bottleneck)
         double_features = int(2 * features)
@@ -24,6 +30,12 @@ class SSMA(nn.Module):
         nn.init.kaiming_uniform_(self.final_conv[0].weight, nonlinearity="relu")
 
     def forward(self, x1, x2):
+        """Forward pass
+
+        :param x1: input data from encoder 1
+        :param x2: input data from encoder 2
+        :return: Fused feature maps
+        """
         x_12 = torch.cat((x1, x2), dim=1)
 
         x_12_est = self.link(x_12)

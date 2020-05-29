@@ -3,8 +3,14 @@ import torch
 
 
 class eASPP(nn.Module):
+    """PyTorch Module for eASPP"""
 
     def __init__(self):
+        """Constructor
+
+        Initializes the 5 branches of the eASPP network.
+        """
+
         super(eASPP, self).__init__()
 
         # branch 1
@@ -46,6 +52,11 @@ class eASPP(nn.Module):
         self.eASPP_fin_bn = nn.BatchNorm2d(256)
 
     def forward(self, x):
+        """Forward pass
+
+        :param x: input from encoder (in stage 1) or from fused encoders (in stage 2 and 3)
+        :return: feature maps to be forwarded to decoder
+        """
         # branch 1: 1x1 convolution
         out = torch.relu(self.branch1_bn(self.branch1_conv(x)))
 
