@@ -9,7 +9,7 @@ from util.eval import *
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def train_stage_1(dl, batch_size, iters=150 * (10 ** 3)):
+def train_stage_1(dl, batch_size, iters=150 * (10 ** 3), enc_lr=10**-3, dec_lr=10**-3):
     """Train stage 1 of AdapNet++
 
     The first stage of AdapNet++ trains two AdapNet models individually from each other, each with its own input. One
@@ -28,16 +28,15 @@ def train_stage_1(dl, batch_size, iters=150 * (10 ** 3)):
     model_m2 = AdapNet(dl.num_labels)
     model_m2.cuda()
 
-    lr = 10 ** -3
-    adam_opt_m1 = optim.Adam(model_m1.parameters(), lr=lr)
-    adam_opt_m2 = optim.Adam(model_m2.parameters(), lr=lr)
+    adam_opt_m1 = optim.Adam(model_m1.parameters(), lr=enc_lr)
+    adam_opt_m2 = optim.Adam(model_m2.parameters(), lr=enc_lr)
 
     train_iteration(iters, [model_m1, model_m2], [adam_opt_m1, adam_opt_m2], dl, batch_size)
 
     return model_m1, model_m2
 
 
-def train_stage_2(dl, models, batch_size, iters=100 * (10 ** 3)):
+def train_stage_2(dl, models, batch_size, iters=100 * (10 ** 3), enc_lr=10**-4, dec_lr=10**-3):
     """Train stage 2 of AdapNet++
 
     The second stage of AdapNet++ trains a modified AdapNet model that has two encoders, each with their own modality
@@ -52,9 +51,6 @@ def train_stage_2(dl, models, batch_size, iters=100 * (10 ** 3)):
     model_fusion = AdapNet(dl.num_labels, encoders=[models[0].encoder_mod1, models[1].encoder_mod1])
     model_fusion.cuda()
 
-    lr_enc = 10 ** -4
-    lr_dec = 10 ** -3
-
     adam_opt = optim.Adam([
         {"params": model_fusion.encoder_mod1.parameters()},
         {"params": model_fusion.encoder_mod2.parameters()},
@@ -62,13 +58,13 @@ def train_stage_2(dl, models, batch_size, iters=100 * (10 ** 3)):
         {"params": model_fusion.ssma_s1.parameters()},
         {"params": model_fusion.ssma_s2.parameters()},
         {"params": model_fusion.ssma_res.parameters()},
-        {"params": model_fusion.decoder.parameters(), "lr": lr_dec}], lr=lr_enc)
+        {"params": model_fusion.decoder.parameters(), "lr": dec_lr}], lr=enc_lr)
     train_iteration(iters, [model_fusion], [adam_opt], dl, batch_size)
 
     return model_fusion
 
 
-def train_stage_3(dl, model, batch_size, iters=50 * (10 ** 3)):
+def train_stage_3(dl, model, batch_size, iters=50 * (10 ** 3), enc_lr=0, dec_lr=10**-5):
     """Train stage 2 of AdapNet++
 
     The third and last stage of AdapNet++ trains the fused model from stage 2 again, but does not update the weights
@@ -79,7 +75,6 @@ def train_stage_3(dl, model, batch_size, iters=50 * (10 ** 3)):
     :param iters: number of iterations
     :return: final model
     """
-    lr_dec = 10 ** -5
 
     adam_opt = optim.Adam([
         {"params": model.eASPP.parameters()},
@@ -87,9 +82,9 @@ def train_stage_3(dl, model, batch_size, iters=50 * (10 ** 3)):
         {"params": model.ssma_s2.parameters()},
         {"params": model.ssma_res.parameters()},
         {"params": model.decoder.parameters()},
-        {"params": model.encoder_mod1.parameters(), "lr": 0},
-        {"params": model.encoder_mod2.parameters(), "lr": 0}
-    ], lr=lr_dec)
+        {"params": model.encoder_mod1.parameters(), "lr": enc_lr},
+        {"params": model.encoder_mod2.parameters(), "lr": enc_lr}
+    ], lr=dec_lr)
     train_iteration(iters, [model], [adam_opt], dl, batch_size)
     return model
 

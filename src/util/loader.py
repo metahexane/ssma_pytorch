@@ -3,12 +3,14 @@ import numpy as np
 from PIL import Image
 import torch
 from torchvision import transforms
+import json
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DataLoader():
 
-    def __init__(self, num_examples=9400, train_size=0.6, test_size=0.3):
+    def __init__(self, path, num_examples=9400, train_size=0.6, test_size=0.3):
+        self.path = path
         self.color_map = {}
         classes = np.loadtxt("data/classes.txt")
         for x in classes:
@@ -25,6 +27,17 @@ class DataLoader():
         self.test_set = np.random.choice(all_samples, self.test_size, replace=False)
         all_samples = np.delete(all_samples, self.test_set)
         self.validation_set = all_samples
+
+    def write_dataset(self, suffix):
+        dt = {
+            "train": [int(x) for x in list(self.train_set)],
+            "test": [int(x) for x in list(self.test_set)],
+            "validation": [int(x) for x in list(self.validation_set)]
+        }
+        dt_name = "models/dataset_" + suffix + ".txt"
+        with open(dt_name, 'w') as file:
+            file.write(json.dumps(dt))
+
 
     def get_color(self, x):
         return self.color_map[x]
@@ -59,12 +72,12 @@ class DataLoader():
 
         return torch.stack(batch_mod1), torch.stack(batch_mod2), torch.stack(batch_gt).long()
 
-    def sample(self, sample_id, path="data/RAND_CITYSCAPES/"):
+    def sample(self, sample_id):
         a = '%07d' % sample_id
         a = a + ".png"
 
-        pilRGB = Image.open(path + "RGB/" + a).convert('RGB')
-        pilDep = Image.open(path + "Depth/Depth/" + a).convert('RGB')
+        pilRGB = Image.open(self.path + "RGB/" + a).convert('RGB')
+        pilDep = Image.open(self.path + "Depth/Depth/" + a).convert('RGB')
 
         pilRGB = self.data_augmentation(pilRGB)
         pilDep = self.data_augmentation(pilDep)
@@ -72,7 +85,7 @@ class DataLoader():
         imgRGB = np.array(pilRGB)[:, :, ::-1]
         imgDep = np.array(pilDep)[:, :, ::-1]
 
-        imgGT = cv2.imread(path + "GT/LABELS/" + a, cv2.IMREAD_UNCHANGED).astype(np.int8)
+        imgGT = cv2.imread(self.path + "GT/LABELS/" + a, cv2.IMREAD_UNCHANGED).astype(np.int8)
         modRGB = cv2.resize(imgRGB, dsize=(768, 384), interpolation=cv2.INTER_LINEAR) / 255
         modDepth = cv2.resize(imgDep, dsize=(768, 384), interpolation=cv2.INTER_NEAREST) / 255
         modGT = cv2.resize(imgGT, dsize=(768, 384), interpolation=cv2.INTER_NEAREST)
