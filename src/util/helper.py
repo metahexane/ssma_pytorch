@@ -5,11 +5,15 @@ from adapnet import AdapNet
 import gc
 from tqdm import tqdm
 from util.eval import *
+from util.parser import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+args = parse_args()
+should_evaluate = int(args.eval) == 1
+save_checkpoint = int(args.save_checkpoint)
 
-def train_stage_1(dl, batch_size, iters=150 * (10 ** 3), enc_lr=10**-3, dec_lr=10**-3):
+def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10**-3, dec_lr=10**-3):
     """Train stage 1 of AdapNet++
 
     The first stage of AdapNet++ trains two AdapNet models individually from each other, each with its own input. One
@@ -31,12 +35,12 @@ def train_stage_1(dl, batch_size, iters=150 * (10 ** 3), enc_lr=10**-3, dec_lr=1
     adam_opt_m1 = optim.Adam(model_m1.parameters(), lr=enc_lr)
     adam_opt_m2 = optim.Adam(model_m2.parameters(), lr=enc_lr)
 
-    train_iteration(iters, [model_m1, model_m2], [adam_opt_m1, adam_opt_m2], dl, batch_size)
+    train_iteration(iters, [model_m1, model_m2], [adam_opt_m1, adam_opt_m2], dl, names, batch_size)
 
     return model_m1, model_m2
 
 
-def train_stage_2(dl, models, batch_size, iters=100 * (10 ** 3), enc_lr=10**-4, dec_lr=10**-3):
+def train_stage_2(dl, models, batch_size, names, iters=100 * (10 ** 3), enc_lr=10**-4, dec_lr=10**-3):
     """Train stage 2 of AdapNet++
 
     The second stage of AdapNet++ trains a modified AdapNet model that has two encoders, each with their own modality
@@ -59,12 +63,12 @@ def train_stage_2(dl, models, batch_size, iters=100 * (10 ** 3), enc_lr=10**-4, 
         {"params": model_fusion.ssma_s2.parameters()},
         {"params": model_fusion.ssma_res.parameters()},
         {"params": model_fusion.decoder.parameters(), "lr": dec_lr}], lr=enc_lr)
-    train_iteration(iters, [model_fusion], [adam_opt], dl, batch_size)
+    train_iteration(iters, [model_fusion], [adam_opt], dl, names, batch_size)
 
     return model_fusion
 
 
-def train_stage_3(dl, model, batch_size, iters=50 * (10 ** 3), enc_lr=0, dec_lr=10**-5):
+def train_stage_3(dl, model, batch_size, names, iters=50 * (10 ** 3), enc_lr=0, dec_lr=10**-5):
     """Train stage 2 of AdapNet++
 
     The third and last stage of AdapNet++ trains the fused model from stage 2 again, but does not update the weights
@@ -85,11 +89,11 @@ def train_stage_3(dl, model, batch_size, iters=50 * (10 ** 3), enc_lr=0, dec_lr=
         {"params": model.encoder_mod1.parameters(), "lr": enc_lr},
         {"params": model.encoder_mod2.parameters(), "lr": enc_lr}
     ], lr=dec_lr)
-    train_iteration(iters, [model], [adam_opt], dl, batch_size)
+    train_iteration(iters, [model], [adam_opt], dl, names, batch_size)
     return model
 
 
-def train_iteration(iters, models, opts, dl, batch_size=2):
+def train_iteration(iters, models, opts, dl, names, batch_size=2):
     """Execute the training iterations
 
     :param iters: number of iterations
@@ -114,16 +118,16 @@ def train_iteration(iters, models, opts, dl, batch_size=2):
             torch.cuda.empty_cache()
             gc.collect()
 
-        if (i + 1) % epochs == 0 or i == iters - 1:
-            iou = evaluate(models[0], dl, mode="validation")
-            print("Evaluation of validation set @ " + str(i))
-            print("mIoU: " + str(iou.mean().item()))
-            print("IoU: " + str(iou))
+        if (i + 1) % save_checkpoint == 0:
+            print("Saving at iteration " + str(i+1))
+            for u, model_name in enumerate(names):
+                torch.save(models[u].state_dict(), model_name)
 
-    iou = evaluate(models[0], dl, mode="test")
-    print("Evaluation of test set")
-    print("mIoU: " + str(iou.mean().item()))
-    print("IoU: " + str(iou))
+        if (i + 1) % epochs == 0 and should_evaluate:
+            evaluate(models[0], dl, mode="validation")
+
+    evaluate(models[0], dl, mode="validation")
+    evaluate(models[0], dl, mode="test")
 
 def train(model, opt, input, target, fusion=False):
     """Execute one training iteration

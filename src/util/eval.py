@@ -26,4 +26,11 @@ def evaluate(model: AdapNet, dl: DataLoader, mode, batch_size=2):
             # dl.result_to_image(res.argmax(dim=1)[0], np.random.randint(0, 1000))
 
             cm.update((res, gt))
-    return iou_cur.compute()
+
+    iou_score = iou_cur.compute()
+
+    print("Evaluation of " + mode + " set")
+    print("mIoU: " + str(iou_score.mean().item()))
+    print("IoU: " + str(iou_score))
+
+    return iou_score
