@@ -13,7 +13,7 @@ args = parse_args()
 should_evaluate = int(args.eval) == 1
 save_checkpoint = int(args.save_checkpoint)
 
-def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10**-3, dec_lr=10**-3):
+def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10**-3, dec_lr=10**-3, load_model=""):
     """Train stage 1 of AdapNet++
 
     The first stage of AdapNet++ trains two AdapNet models individually from each other, each with its own input. One
@@ -24,12 +24,17 @@ def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10**-3, d
     :param iters: number of iterations
     :return: two trained AdapNet models
     """
-    # mod1
-    model_m1 = AdapNet(dl.num_labels)
-    model_m1.cuda()
 
-    # mod2
+    model_m1 = AdapNet(dl.num_labels)
     model_m2 = AdapNet(dl.num_labels)
+
+    if len(load_model) > 0:
+        m1_name = "models/adapnet_mod1_" + load_model + ".pt"
+        m2_name = "models/adapnet_mod2_" + load_model + ".pt"
+        model_m1.load_state_dict(torch.load(m1_name))
+        model_m2.load_state_dict(torch.load(m2_name))
+
+    model_m1.cuda()
     model_m2.cuda()
 
     adam_opt_m1 = optim.Adam(model_m1.parameters(), lr=enc_lr)
@@ -92,6 +97,14 @@ def train_stage_3(dl, model, batch_size, names, iters=50 * (10 ** 3), enc_lr=0, 
     train_iteration(iters, [model], [adam_opt], dl, names, batch_size)
     return model
 
+def create_snapshot(iter, names, models, opts):
+    for u, model_name in enumerate(names):
+        model_snapshot = {
+            'iteration': iter + 1,
+            'model_state_dict': models[u].state_dict(),
+            'optimizer_state_dict': opts[u].state_dict()
+        }
+        torch.save(model_snapshot, model_name)
 
 def train_iteration(iters, models, opts, dl, names, batch_size=2):
     """Execute the training iterations
@@ -119,12 +132,15 @@ def train_iteration(iters, models, opts, dl, names, batch_size=2):
             gc.collect()
 
         if (i + 1) % save_checkpoint == 0:
-            print("Saving at iteration " + str(i+1))
-            for u, model_name in enumerate(names):
-                torch.save(models[u].state_dict(), model_name)
+            print("Saving at iteration " + str(i + 1))
+            create_snapshot(i, names, models, opts)
 
         if (i + 1) % epochs == 0 and should_evaluate:
             evaluate(models[0], dl, mode="validation")
+
+    if int(args.save) == 1:
+        print("Saving trained model after training")
+        create_snapshot(iters, names, models, opts)
 
     evaluate(models[0], dl, mode="validation")
     evaluate(models[0], dl, mode="test")

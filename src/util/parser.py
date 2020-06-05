@@ -11,5 +11,7 @@ def parse_args():
     parser.add_argument("--eval", nargs='?', default='0')
     parser.add_argument("--save", nargs='?', default='1')
     parser.add_argument("--save-checkpoint", nargs='?', default='5000')
+    parser.add_argument("--start", nargs='?', default='1')
+    parser.add_argument("--model", nargs="?", default="")
 
     return parser.parse_args()

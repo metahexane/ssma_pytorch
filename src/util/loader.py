@@ -10,8 +10,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class DataLoader():
-
-    def __init__(self, path, num_examples=9400, train_size=0.6, test_size=0.3):
+    #9400
+    def __init__(self, path, num_examples=10, train_size=0.6, test_size=0.3, date=None):
         self.path = path
         self.color_map = {}
         classes = np.loadtxt("data/classes.txt")
@@ -23,12 +23,21 @@ class DataLoader():
         self.train_size = int(train_size * self.num_examples)
         self.test_size = int(test_size * self.num_examples)
 
-        all_samples = np.arange(0, self.num_examples)
-        self.train_set = np.random.choice(all_samples, self.train_size, replace=False)
-        all_samples = np.delete(all_samples, self.train_set)
-        self.test_set = np.random.choice(all_samples, self.test_size, replace=False)
-        all_samples = np.delete(all_samples, self.test_set)
-        self.validation_set = all_samples
+        if date is None:
+            all_samples = np.arange(0, self.num_examples)
+            self.train_set = np.random.choice(all_samples, self.train_size, replace=False)
+            all_samples = np.delete(all_samples, self.train_set)
+            self.test_set = np.random.choice(all_samples, self.test_size, replace=False)
+            all_samples = np.delete(all_samples, self.test_set)
+            self.validation_set = all_samples
+        else:
+            dt_name = "models/dataset_" + date + ".txt"
+            with open(dt_name, 'r') as file:
+                data_sets = json.load(file)
+                self.train_set = data_sets["train"]
+                self.test_set = data_sets["test"]
+                self.validation_set = data_sets["validation"]
+
 
     def write_dataset(self, suffix):
         dt = {
