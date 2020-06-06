@@ -22,9 +22,11 @@ class AdapNet(nn.Module):
         self.fusion = False
 
         if len(encoders) > 0:
-            self.encoder_mod1 = encoders[0]
+            self.encoder_mod1 = Encoder()
+            self.encoder_mod1.load_state_dict(encoders[0].state_dict())
             self.encoder_mod1.res_n50_enc.layer3[2].dropout = False
-            self.encoder_mod2 = encoders[1]
+            self.encoder_mod2 = Encoder()
+            self.encoder_mod2.load_state_dict(encoders[1].state_dict())
             self.encoder_mod2.res_n50_enc.layer3[2].dropout = False
             self.ssma_s1 = SSMA(24, 6)
             self.ssma_s2 = SSMA(24, 6)

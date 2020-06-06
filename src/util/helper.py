@@ -28,24 +28,42 @@ def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10**-3, d
     model_m1 = AdapNet(dl.num_labels)
     model_m2 = AdapNet(dl.num_labels)
 
-    if len(load_model) > 0:
-        m1_name = "models/adapnet_mod1_" + load_model + ".pt"
-        m2_name = "models/adapnet_mod2_" + load_model + ".pt"
-        model_m1.load_state_dict(torch.load(m1_name))
-        model_m2.load_state_dict(torch.load(m2_name))
-
-    model_m1.cuda()
-    model_m2.cuda()
+    if len(load_model) == 0:
+        model_m1.cuda()
+        model_m2.cuda()
 
     adam_opt_m1 = optim.Adam(model_m1.parameters(), lr=enc_lr)
     adam_opt_m2 = optim.Adam(model_m2.parameters(), lr=enc_lr)
 
+    if len(load_model) > 0:
+        m1_name = "models/adapnet_mod1_" + load_model + ".tar"
+        m2_name = "models/adapnet_mod2_" + load_model + ".tar"
+        l_m1 = torch.load(m1_name)
+        l_m2 = torch.load(m2_name)
+
+        print("Resuming training from iteration " + str(l_m1['iteration']))
+
+        model_m1.load_state_dict(l_m1['model_state_dict'])
+        model_m2.load_state_dict(l_m2['model_state_dict'])
+
+        model_m1.cuda()
+        model_m2.cuda()
+
+        adam_opt_m1.load_state_dict(l_m1['optimizer_state_dict'])
+        adam_opt_m2.load_state_dict(l_m2['optimizer_state_dict'])
+
+
+
     train_iteration(iters, [model_m1, model_m2], [adam_opt_m1, adam_opt_m2], dl, names, batch_size)
+
+    del adam_opt_m1
+    del adam_opt_m2
+    torch.cuda.empty_cache()
 
     return model_m1, model_m2
 
 
-def train_stage_2(dl, models, batch_size, names, iters=100 * (10 ** 3), enc_lr=10**-4, dec_lr=10**-3):
+def train_stage_2(dl, models, batch_size, names, iters=100 * (10 ** 3), enc_lr=10**-4, dec_lr=10**-3, optim=None):
     """Train stage 2 of AdapNet++
 
     The second stage of AdapNet++ trains a modified AdapNet model that has two encoders, each with their own modality
@@ -57,23 +75,39 @@ def train_stage_2(dl, models, batch_size, names, iters=100 * (10 ** 3), enc_lr=1
     :param iters: number of iterations
     :return: fused model
     """
-    model_fusion = AdapNet(dl.num_labels, encoders=[models[0].encoder_mod1, models[1].encoder_mod1])
-    model_fusion.cuda()
 
-    adam_opt = optim.Adam([
-        {"params": model_fusion.encoder_mod1.parameters()},
-        {"params": model_fusion.encoder_mod2.parameters()},
-        {"params": model_fusion.eASPP.parameters()},
-        {"params": model_fusion.ssma_s1.parameters()},
-        {"params": model_fusion.ssma_s2.parameters()},
-        {"params": model_fusion.ssma_res.parameters()},
-        {"params": model_fusion.decoder.parameters(), "lr": dec_lr}], lr=enc_lr)
+    if len(models) == 2:
+        model_fusion = AdapNet(dl.num_labels, encoders=[models[0].encoder_mod1, models[1].encoder_mod1])
+        model_fusion.cuda()
+
+        del models[1]
+        del models[0]
+        torch.cuda.empty_cache()
+    else:
+        model_fusion = models[0]
+
+    if optim is None:
+        adam_opt = torch.optim.Adam([
+            {"params": model_fusion.encoder_mod1.parameters()},
+            {"params": model_fusion.encoder_mod2.parameters()},
+            {"params": model_fusion.eASPP.parameters()},
+            {"params": model_fusion.ssma_s1.parameters()},
+            {"params": model_fusion.ssma_s2.parameters()},
+            {"params": model_fusion.ssma_res.parameters()},
+            {"params": model_fusion.decoder.parameters(), "lr": dec_lr}], lr=enc_lr)
+    else:
+        adam_opt = optim
+
     train_iteration(iters, [model_fusion], [adam_opt], dl, names, batch_size)
+
+    del adam_opt
+    del optim
+    torch.cuda.empty_cache()
 
     return model_fusion
 
 
-def train_stage_3(dl, model, batch_size, names, iters=50 * (10 ** 3), enc_lr=0, dec_lr=10**-5):
+def train_stage_3(dl, model, batch_size, names, iters=50 * (10 ** 3), enc_lr=0, dec_lr=10**-5, optim=None):
     """Train stage 2 of AdapNet++
 
     The third and last stage of AdapNet++ trains the fused model from stage 2 again, but does not update the weights
@@ -85,16 +119,25 @@ def train_stage_3(dl, model, batch_size, names, iters=50 * (10 ** 3), enc_lr=0, 
     :return: final model
     """
 
-    adam_opt = optim.Adam([
-        {"params": model.eASPP.parameters()},
-        {"params": model.ssma_s1.parameters()},
-        {"params": model.ssma_s2.parameters()},
-        {"params": model.ssma_res.parameters()},
-        {"params": model.decoder.parameters()},
-        {"params": model.encoder_mod1.parameters(), "lr": enc_lr},
-        {"params": model.encoder_mod2.parameters(), "lr": enc_lr}
-    ], lr=dec_lr)
+    if optim is None:
+        adam_opt = torch.optim.Adam([
+            {"params": model.eASPP.parameters()},
+            {"params": model.ssma_s1.parameters()},
+            {"params": model.ssma_s2.parameters()},
+            {"params": model.ssma_res.parameters()},
+            {"params": model.decoder.parameters()},
+            {"params": model.encoder_mod1.parameters(), "lr": enc_lr},
+            {"params": model.encoder_mod2.parameters(), "lr": enc_lr}
+        ], lr=dec_lr)
+    else:
+        adam_opt = optim
+
     train_iteration(iters, [model], [adam_opt], dl, names, batch_size)
+
+    del adam_opt
+    torch.cuda.empty_cache()
+    gc.collect()
+
     return model
 
 def create_snapshot(iter, names, models, opts):
@@ -105,6 +148,9 @@ def create_snapshot(iter, names, models, opts):
             'optimizer_state_dict': opts[u].state_dict()
         }
         torch.save(model_snapshot, model_name)
+        del model_snapshot
+        torch.cuda.empty_cache()
+        gc.collect()
 
 def train_iteration(iters, models, opts, dl, names, batch_size=2):
     """Execute the training iterations
@@ -125,9 +171,8 @@ def train_iteration(iters, models, opts, dl, names, batch_size=2):
             input = [mod1, mod2]
 
         for j, model in enumerate(models):
-            res, batch_loss = train(model, opts[j], input[j], gt_all, fusion=len(models) == 1)
+            train(model, opts[j], input[j], gt_all, fusion=len(models) == 1)
 
-            del res
             torch.cuda.empty_cache()
             gc.collect()
 
@@ -144,6 +189,9 @@ def train_iteration(iters, models, opts, dl, names, batch_size=2):
 
     evaluate(models[0], dl, mode="validation")
     evaluate(models[0], dl, mode="test")
+
+    torch.cuda.empty_cache()
+    gc.collect()
 
 def train(model, opt, input, target, fusion=False):
     """Execute one training iteration
@@ -179,4 +227,8 @@ def train(model, opt, input, target, fusion=False):
     del a1
     del a2
 
-    return res, batch_loss
+    del res
+    del batch_loss
+    del aux1_loss
+    del res_loss
+    del aux2_loss
