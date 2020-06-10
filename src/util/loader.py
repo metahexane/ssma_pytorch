@@ -11,7 +11,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DataLoader():
     #9400
-    def __init__(self, path, num_examples=10, train_size=0.6, test_size=0.3, date=None):
+    def __init__(self, path, num_examples=9400, num_categories=12, train_size=0.6, test_size=0.3, date=None):
         self.path = path
         self.color_map = {}
         classes = np.loadtxt("data/classes.txt")
@@ -19,6 +19,7 @@ class DataLoader():
             self.color_map[x[3]] = [x[0], x[1], x[2]]
 
         self.num_labels = len(np.unique(classes[:, 3]))
+        self.num_categories = num_categories
         self.num_examples = num_examples
         self.train_size = int(train_size * self.num_examples)
         self.test_size = int(test_size * self.num_examples)

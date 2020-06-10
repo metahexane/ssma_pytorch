@@ -25,8 +25,8 @@ def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10**-3, d
     :return: two trained AdapNet models
     """
 
-    model_m1 = AdapNet(dl.num_labels)
-    model_m2 = AdapNet(dl.num_labels)
+    model_m1 = AdapNet(dl.num_categories)
+    model_m2 = AdapNet(dl.num_categories)
 
     if len(load_model) == 0:
         model_m1.cuda()
