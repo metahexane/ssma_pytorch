@@ -14,11 +14,8 @@ class DataLoader():
     def __init__(self, path, num_examples=10, train_size=0.6, test_size=0.3, date=None):
         self.path = path
         self.color_map = {}
-        classes = np.loadtxt("data/classes.txt")
-        for x in classes:
-            self.color_map[x[3]] = [x[0], x[1], x[2]]
 
-        self.num_labels = len(np.unique(classes[:, 3]))
+        self.num_labels = 12 # len(np.unique(classes[:, 3]))
         self.num_examples = num_examples
         self.train_size = int(train_size * self.num_examples)
         self.test_size = int(test_size * self.num_examples)
@@ -103,11 +100,27 @@ class DataLoader():
             modRGB = cv2.resize(imgRGB, dsize=(768, 384), interpolation=cv2.INTER_LINEAR) / 255
             modDepth = cv2.resize(imgDep, dsize=(768, 384), interpolation=cv2.INTER_NEAREST) / 255
             modGT = cv2.resize(imgGT, dsize=(768, 384), interpolation=cv2.INTER_NEAREST)
+            modGT = modGT[: , :, 2]
+
+            modGT = np.where(modGT == 16, 6, modGT)
+            modGT = np.where(modGT == 18, 8, modGT)
+            modGT = np.where(modGT == 19, 8, modGT)
+            modGT = np.where(modGT == 20, 8, modGT)
+
+            modGT = np.where(modGT == 15, 9, modGT)
+            modGT = np.where(modGT == 14, 9, modGT)
+
+            modGT = np.where(modGT == 12, 11, modGT)
+            modGT = np.where(modGT == 17, 11, modGT)
+
+            modGT = np.where(modGT == 21, 2, modGT)
+            modGT = np.where(modGT == 13, 3, modGT)
+            modGT = np.where(modGT == 22, 3, modGT)
 
             # opencv saves it as BGR instead of RGB
             return np.array([modRGB[:, :, 2], modRGB[:, :, 1], modRGB[:, :, 0]]), \
                    np.array([modDepth[:, :, 2], modDepth[:, :, 1], modDepth[:, :, 0]]), \
-                   modGT[:, :, 2]
+                   modGT
         except IOError:
             print("Error loading " + a)
         return False, False, False
@@ -131,3 +144,17 @@ class DataLoader():
         transformed_img = transform(mods)
 
         return transformed_img
+#
+# from tqdm import tqdm
+#
+# dl = DataLoader("data/RAND_CITYSCAPES/")
+# labels = set()
+# for x in tqdm(range(100)):
+#     s = dl.sample(np.random.randint(9400))
+#     f = s[2].flatten()
+#     f = np.unique(f)
+#     print(f)
+#     labels = labels.union(set(f))
+#
+# print(labels)
+# print(len(labels))

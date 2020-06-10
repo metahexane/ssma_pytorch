@@ -13,7 +13,8 @@ args = parse_args()
 should_evaluate = int(args.eval) == 1
 save_checkpoint = int(args.save_checkpoint)
 
-def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10**-3, dec_lr=10**-3, load_model=""):
+
+def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10 ** -3, dec_lr=10 ** -3, load_model=""):
     """Train stage 1 of AdapNet++
 
     The first stage of AdapNet++ trains two AdapNet models individually from each other, each with its own input. One
@@ -43,16 +44,56 @@ def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10**-3, d
 
         print("Resuming training from iteration " + str(l_m1['iteration']))
 
+        # Uncomment for lower dim loading from larger dim model
+        # singles = ["decoder.stage3.6.bias",
+        #            "decoder.stage3.7.weight",
+        #            "decoder.stage3.7.bias",
+        #            "decoder.stage3.7.running_mean",
+        #            "decoder.stage3.7.running_var",
+        #            "decoder.stage3.8.bias",
+        #            "decoder.stage3.9.weight",
+        #            "decoder.stage3.9.bias",
+        #            "decoder.stage3.9.running_mean",
+        #            "decoder.stage3.9.running_var",
+        #            "decoder.aux_conv1.bias",
+        #            "decoder.aux_conv1_bn.weight",
+        #            "decoder.aux_conv1_bn.bias",
+        #            "decoder.aux_conv1_bn.running_mean",
+        #            "decoder.aux_conv1_bn.running_var",
+        #            "decoder.aux_conv2.bias",
+        #            "decoder.aux_conv2_bn.weight",
+        #            "decoder.aux_conv2_bn.bias",
+        #            "decoder.aux_conv2_bn.running_mean",
+        #            "decoder.aux_conv2_bn.running_var"]
+        #
+        # mults = ["decoder.stage3.6.weight",
+        #          "decoder.aux_conv1.weight",
+        #          "decoder.aux_conv2.weight"]
+        #
+        # for s in singles:
+        #     l_m1['model_state_dict'][s] = l_m1['model_state_dict'][s][:dl.num_labels]
+        #
+        # for s in mults:
+        #     l_m1['model_state_dict'][s] = l_m1['model_state_dict'][s][:dl.num_labels, :]
+        #
+        # l_m1['model_state_dict']["decoder.stage3.8.weight"] = l_m1['model_state_dict']["decoder.stage3.8.weight"][:dl.num_labels, :dl.num_labels, :]
+        #
+        # for s in singles:
+        #     l_m2['model_state_dict'][s] = l_m2['model_state_dict'][s][:dl.num_labels]
+        #
+        # for s in mults:
+        #     l_m2['model_state_dict'][s] = l_m2['model_state_dict'][s][:dl.num_labels, :]
+        #
+        # l_m2['model_state_dict']["decoder.stage3.8.weight"] = l_m2['model_state_dict']["decoder.stage3.8.weight"][:dl.num_labels, :dl.num_labels, :]
+
         model_m1.load_state_dict(l_m1['model_state_dict'])
         model_m2.load_state_dict(l_m2['model_state_dict'])
 
         model_m1.cuda()
         model_m2.cuda()
 
-        adam_opt_m1.load_state_dict(l_m1['optimizer_state_dict'])
-        adam_opt_m2.load_state_dict(l_m2['optimizer_state_dict'])
-
-
+        # adam_opt_m1.load_state_dict(l_m1['optimizer_state_dict'])
+        # adam_opt_m2.load_state_dict(l_m2['optimizer_state_dict'])
 
     train_iteration(iters, [model_m1, model_m2], [adam_opt_m1, adam_opt_m2], dl, names, batch_size)
 
@@ -63,7 +104,7 @@ def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10**-3, d
     return model_m1, model_m2
 
 
-def train_stage_2(dl, models, batch_size, names, iters=100 * (10 ** 3), enc_lr=10**-4, dec_lr=10**-3, optim=None):
+def train_stage_2(dl, models, batch_size, names, iters=100 * (10 ** 3), enc_lr=10 ** -4, dec_lr=10 ** -3, optim=None):
     """Train stage 2 of AdapNet++
 
     The second stage of AdapNet++ trains a modified AdapNet model that has two encoders, each with their own modality
@@ -107,7 +148,7 @@ def train_stage_2(dl, models, batch_size, names, iters=100 * (10 ** 3), enc_lr=1
     return model_fusion
 
 
-def train_stage_3(dl, model, batch_size, names, iters=50 * (10 ** 3), enc_lr=0, dec_lr=10**-5, optim=None):
+def train_stage_3(dl, model, batch_size, names, iters=50 * (10 ** 3), enc_lr=0, dec_lr=10 ** -5, optim=None):
     """Train stage 2 of AdapNet++
 
     The third and last stage of AdapNet++ trains the fused model from stage 2 again, but does not update the weights
@@ -140,6 +181,7 @@ def train_stage_3(dl, model, batch_size, names, iters=50 * (10 ** 3), enc_lr=0, 
 
     return model
 
+
 def create_snapshot(iter, names, models, opts):
     for u, model_name in enumerate(names):
         model_snapshot = {
@@ -151,6 +193,7 @@ def create_snapshot(iter, names, models, opts):
         del model_snapshot
         torch.cuda.empty_cache()
         gc.collect()
+
 
 def train_iteration(iters, models, opts, dl, names, batch_size=2):
     """Execute the training iterations
@@ -192,6 +235,7 @@ def train_iteration(iters, models, opts, dl, names, batch_size=2):
 
     torch.cuda.empty_cache()
     gc.collect()
+
 
 def train(model, opt, input, target, fusion=False):
     """Execute one training iteration
