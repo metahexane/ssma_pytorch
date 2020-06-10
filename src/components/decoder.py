@@ -48,8 +48,8 @@ class Decoder(nn.Module):
             nn.ReLU(),
             nn.Conv2d(256, self.num_categories, 1),
             nn.BatchNorm2d(self.num_categories),
-            nn.ConvTranspose2d(self.num_categories, 1, kernel_size=8, stride=4, padding=2),
-            nn.BatchNorm2d(1)
+            nn.ConvTranspose2d(self.num_categories, self.num_categories, kernel_size=8, stride=4, padding=2),
+            nn.BatchNorm2d(self.num_categories)
         )
         for i, layer in enumerate(self.stage3):
             if str(type(layer)) == "<class 'torch.nn.modules.conv.Conv2d'>" or \
