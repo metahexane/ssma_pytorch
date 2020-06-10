@@ -6,6 +6,8 @@ import datetime
 from components.encoder import Encoder
 import gc
 
+torch.cuda.empty_cache()
+
 args = parse_args()
 
 batch_sizes = eval(args.batch)
