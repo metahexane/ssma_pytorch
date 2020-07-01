@@ -1,11 +1,20 @@
-from util.loader import DataLoader
 import torch
-from adapnet import AdapNet
-from ignite.metrics.confusion_matrix import ConfusionMatrix
 from ignite.metrics import IoU
-import numpy as np
+from ignite.metrics.confusion_matrix import ConfusionMatrix
+
+from adapnet import AdapNet
+from util.loader import DataLoader
+
 
 def evaluate(model: AdapNet, dl: DataLoader, mode, batch_size=2):
+    """
+    Evaluates the model, uses IoU as the metric
+    :param model: The model to evaluate
+    :param dl: The DataLoader of the model
+    :param mode: The evaluations mode, one of "test" or "validation"
+    :param batch_size: The batch size for the evaluation
+    :return:
+    """
     model.eval()
 
     if mode == "test":
@@ -22,9 +31,6 @@ def evaluate(model: AdapNet, dl: DataLoader, mode, batch_size=2):
             m1, m2, gt = dl.sample_batch(batch_size, mode=mode)
             _, _, res = model(m1, m2)
             res = torch.softmax(res, dim=1)
-
-            # dl.result_to_image(res.argmax(dim=1)[0], np.random.randint(0, 1000))
-
             cm.update((res, gt))
 
     iou_score = iou_cur.compute()

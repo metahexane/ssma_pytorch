@@ -1,8 +1,10 @@
 from torch import nn as nn
+
 from components.decoder import Decoder
 from components.easpp import eASPP
 from components.encoder import Encoder
 from components.ssma import SSMA
+
 
 class AdapNet(nn.Module):
     """PyTorch module for 'AdapNet++' and 'AdapNet++ with fusion architecture' """

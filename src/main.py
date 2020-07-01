@@ -1,10 +1,8 @@
-import torch
-from util.loader import DataLoader
-from util.parser import *
-from util.helper import *
 import datetime
-from components.encoder import Encoder
 import gc
+
+from components.encoder import Encoder
+from util.helper import *
 
 torch.cuda.empty_cache()
 
@@ -19,6 +17,10 @@ load_model = args.model
 resume_training = int(args.resume) == 1
 
 def stage_1():
+    """
+    Executes stage 1 of the training
+    :return:
+    """
     if len(load_model) == 0:
         dl = DataLoader(args.data)
         date = datetime.datetime.now().strftime("%d_%m_%Y_%H_%M")
@@ -35,6 +37,14 @@ def stage_1():
 
 
 def stage_2(models, date, dl, optim=None):
+    """
+    Executes stage 2 of the training
+    :param models: The two models that have to be fused
+    :param date: The model signature/date
+    :param dl: The DataLoader of the model
+    :param optim: The optimizer of the model
+    :return:
+    """
     print("---- Stage 2: fusion architecture, train SSMA ----")
     s2_names = ["models/adapnet_fusion1_" + date + ".tar"]
     mf = train_stage_2(dl, models, batch_sizes[1], s2_names, iters=iterations[1], enc_lr=enc_lr[1], dec_lr=dec_lr[1], optim=optim)
@@ -43,6 +53,14 @@ def stage_2(models, date, dl, optim=None):
 
 
 def stage_3(mf, date, dl, optim=None):
+    """
+    Executes stage 2 of the training
+    :param mf: The fused model that has to be trained
+    :param date: The model signature/date
+    :param dl: The DataLoader of the model
+    :param optim: The optimizer of the model
+    :return:
+    """
     print("---- Stage 3: train SSMA and decoder ----")
     s3_names = ["models/adapnet_fusion2_" + date + ".tar"]
     mf_final = train_stage_3(dl, mf, batch_sizes[2], s3_names, iters=iterations[2], enc_lr=enc_lr[2], dec_lr=dec_lr[2], optim=optim)
@@ -51,6 +69,7 @@ def stage_3(mf, date, dl, optim=None):
 
 
 if start_stage == 1:
+    # Starts stage 1
     m1, m2, date, dl = stage_1()
     gc.collect()
     mf = stage_2([m1, m2], date, dl)
@@ -60,6 +79,7 @@ if start_stage == 1:
 if start_stage == 2:
     dl = DataLoader(args.data, date=load_model)
     if resume_training:
+        # Resume training of stage 2 by reading in the pretrained model
         mf = AdapNet(dl.num_labels, encoders=[Encoder(), Encoder()])
         mf_name = "models/adapnet_fusion1_" + load_model + ".tar"
         l_mfusion = torch.load(mf_name)
@@ -86,6 +106,7 @@ if start_stage == 2:
         torch.cuda.empty_cache()
         gc.collect()
     else:
+        # Train from the start of stage 2
         m1 = AdapNet(dl.num_labels)
         m2 = AdapNet(dl.num_labels)
         m1_name = "models/adapnet_mod1_" + load_model + ".tar"
@@ -126,6 +147,7 @@ if start_stage == 3:
     dl = DataLoader(args.data, date=load_model)
 
     if resume_training:
+        # Resume training from stage 3
         mf = AdapNet(dl.num_labels, encoders=[Encoder(), Encoder()])
         mf_name = "models/adapnet_fusion2_" + load_model + ".tar"
         lmfinal = torch.load(mf_name)
@@ -150,6 +172,7 @@ if start_stage == 3:
         torch.cuda.empty_cache()
         gc.collect()
     else:
+        # Start training from stage 3
         mf = AdapNet(dl.num_labels, encoders=[Encoder(), Encoder()])
         mf_name = "models/adapnet_fusion1_" + load_model + ".tar"
         mf.load_state_dict(torch.load(mf_name)['model_state_dict'])

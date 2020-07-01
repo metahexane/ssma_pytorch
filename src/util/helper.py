@@ -1,9 +1,9 @@
-import torch
+import gc
+
 import torch.nn as nn
 import torch.optim as optim
-from adapnet import AdapNet
-import gc
 from tqdm import tqdm
+
 from util.eval import *
 from util.parser import *
 
@@ -44,56 +44,14 @@ def train_stage_1(dl, batch_size, names, iters=150 * (10 ** 3), enc_lr=10 ** -3,
 
         print("Resuming training from iteration " + str(l_m1['iteration']))
 
-        # Uncomment for lower dim loading from larger dim model
-        # singles = ["decoder.stage3.6.bias",
-        #            "decoder.stage3.7.weight",
-        #            "decoder.stage3.7.bias",
-        #            "decoder.stage3.7.running_mean",
-        #            "decoder.stage3.7.running_var",
-        #            "decoder.stage3.8.bias",
-        #            "decoder.stage3.9.weight",
-        #            "decoder.stage3.9.bias",
-        #            "decoder.stage3.9.running_mean",
-        #            "decoder.stage3.9.running_var",
-        #            "decoder.aux_conv1.bias",
-        #            "decoder.aux_conv1_bn.weight",
-        #            "decoder.aux_conv1_bn.bias",
-        #            "decoder.aux_conv1_bn.running_mean",
-        #            "decoder.aux_conv1_bn.running_var",
-        #            "decoder.aux_conv2.bias",
-        #            "decoder.aux_conv2_bn.weight",
-        #            "decoder.aux_conv2_bn.bias",
-        #            "decoder.aux_conv2_bn.running_mean",
-        #            "decoder.aux_conv2_bn.running_var"]
-        #
-        # mults = ["decoder.stage3.6.weight",
-        #          "decoder.aux_conv1.weight",
-        #          "decoder.aux_conv2.weight"]
-        #
-        # for s in singles:
-        #     l_m1['model_state_dict'][s] = l_m1['model_state_dict'][s][:dl.num_labels]
-        #
-        # for s in mults:
-        #     l_m1['model_state_dict'][s] = l_m1['model_state_dict'][s][:dl.num_labels, :]
-        #
-        # l_m1['model_state_dict']["decoder.stage3.8.weight"] = l_m1['model_state_dict']["decoder.stage3.8.weight"][:dl.num_labels, :dl.num_labels, :]
-        #
-        # for s in singles:
-        #     l_m2['model_state_dict'][s] = l_m2['model_state_dict'][s][:dl.num_labels]
-        #
-        # for s in mults:
-        #     l_m2['model_state_dict'][s] = l_m2['model_state_dict'][s][:dl.num_labels, :]
-        #
-        # l_m2['model_state_dict']["decoder.stage3.8.weight"] = l_m2['model_state_dict']["decoder.stage3.8.weight"][:dl.num_labels, :dl.num_labels, :]
-
         model_m1.load_state_dict(l_m1['model_state_dict'])
         model_m2.load_state_dict(l_m2['model_state_dict'])
 
         model_m1.cuda()
         model_m2.cuda()
 
-        # adam_opt_m1.load_state_dict(l_m1['optimizer_state_dict'])
-        # adam_opt_m2.load_state_dict(l_m2['optimizer_state_dict'])
+        adam_opt_m1.load_state_dict(l_m1['optimizer_state_dict'])
+        adam_opt_m2.load_state_dict(l_m2['optimizer_state_dict'])
 
     train_iteration(iters, [model_m1, model_m2], [adam_opt_m1, adam_opt_m2], dl, names, batch_size)
 
@@ -183,6 +141,14 @@ def train_stage_3(dl, model, batch_size, names, iters=50 * (10 ** 3), enc_lr=0, 
 
 
 def create_snapshot(iter, names, models, opts):
+    """
+    Creates a snapshot for the model
+    :param iter: The current iteration
+    :param names: The names for the savable models
+    :param models: The models to save
+    :param opts: The optimizers to save
+    :return:
+    """
     for u, model_name in enumerate(names):
         model_snapshot = {
             'iteration': iter + 1,

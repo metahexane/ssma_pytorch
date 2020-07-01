@@ -1,6 +1,10 @@
 import argparse
 
 def parse_args():
+    """
+    Parses the inputs of the program
+    :return:
+    """
     parser = argparse.ArgumentParser(description="SSMA for semantic segmentation")
 
     parser.add_argument("--data", nargs='?', default="data/RAND_CITYSCAPES/")

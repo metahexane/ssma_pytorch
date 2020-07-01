@@ -1,6 +1,8 @@
-from torchvision.models import resnet50
 import torch.nn as nn
-from components.rep_unit import BottleneckSSMA
+from torchvision.models import resnet50
+
+from components.ms_unit import BottleneckSSMA
+
 
 class Encoder(nn.Module):
     """PyTorch Module for encoder"""

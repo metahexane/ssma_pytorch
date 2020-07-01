@@ -1,19 +1,31 @@
+import json
+
 import cv2
 import numpy as np
-from PIL import Image, ImageFile
 import torch
+from PIL import Image, ImageFile
 from torchvision import transforms
-import json
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class DataLoader():
-    #9400
+
     def __init__(self, path, num_examples=10, train_size=0.6, test_size=0.3, date=None):
+        """
+        Initializes the data loader
+        :param path: the path to the data
+        :param num_examples: The number of examples to use
+        :param train_size: The size (in percentage) of the train set
+        :param test_size: The size (in percentage) of the test set
+        :param date: The signature/date of the model
+        """
         self.path = path
         self.color_map = {}
+        classes = np.loadtxt("data/classes.txt")
+        for x in classes:
+            self.color_map[x[3]] = [x[0], x[1], x[2]]
 
         self.num_labels = 12 # len(np.unique(classes[:, 3]))
         self.num_examples = num_examples
@@ -37,6 +49,11 @@ class DataLoader():
 
 
     def write_dataset(self, suffix):
+        """
+        Saves the data loader
+        :param suffix:
+        :return:
+        """
         dt = {
             "train": [int(x) for x in list(self.train_set)],
             "test": [int(x) for x in list(self.test_set)],
@@ -50,6 +67,12 @@ class DataLoader():
         return self.color_map[x]
 
     def result_to_image(self, result, iter):
+        """
+        Converts the output of the network to an actual image
+        :param result: The output of the network (with torch.argmax)
+        :param iter: The name of the file to save it to
+        :return:
+        """
         b = result.cpu().numpy()
         bs = b.shape
         data = np.zeros((bs[0], bs[1], 3), dtype=np.uint8)
@@ -61,6 +84,12 @@ class DataLoader():
         img.save('results/ssma ' + str(iter + 1) + '.png')
 
     def sample_batch(self, batch_size, mode="train"):
+        """
+        Samples a batch of images
+        :param batch_size: The batch size of the image
+        :param mode: The mode for sampling, one of "train", "test" or "validation"
+        :return:
+        """
         batch_mod1 = []
         batch_mod2 = []
         batch_gt = []
@@ -83,6 +112,11 @@ class DataLoader():
         return torch.stack(batch_mod1), torch.stack(batch_mod2), torch.stack(batch_gt).long()
 
     def sample(self, sample_id):
+        """
+        Samples a single image
+        :param sample_id: The ID of the image
+        :return:
+        """
         a = '%07d' % sample_id
         a = a + ".png"
 
@@ -126,6 +160,11 @@ class DataLoader():
         return False, False, False
 
     def data_augmentation(self, mods):
+        """
+        Augments the data
+        :param mods:
+        :return:
+        """
         rand_crop = np.random.uniform(low=0.8, high=0.9)
         rand_scale = np.random.uniform(low=0.5, high=2.0)
         rand_bright = np.random.uniform(low=0, high=0.4)
@@ -144,17 +183,3 @@ class DataLoader():
         transformed_img = transform(mods)
 
         return transformed_img
-#
-# from tqdm import tqdm
-#
-# dl = DataLoader("data/RAND_CITYSCAPES/")
-# labels = set()
-# for x in tqdm(range(100)):
-#     s = dl.sample(np.random.randint(9400))
-#     f = s[2].flatten()
-#     f = np.unique(f)
-#     print(f)
-#     labels = labels.union(set(f))
-#
-# print(labels)
-# print(len(labels))
