@@ -5,3 +5,5 @@ The program can be started with python main.py.
 The help argument (-h/--help) may be used to extract detailed information about the parameters of the model.
 
 Default parameters may be found in util/parser.py.
+
+The article for this reproduction can be found [here](https://medium.com/swlh/self-supervised-model-adaptation-for-multimodal-semantic-segmentation-an-independent-reproduction-d18c10c855ff).
